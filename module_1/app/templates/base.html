@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Personal Website{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <!-- Top Header Banner with Colorized Background -->
+    <header class="header-banner">
+        <div class="nav-container">
+            <!-- Navigation Bar located on the top right corner -->
+            <nav class="navbar">
+                <a href="{{ url_for('pages.about') }}" class="nav-tab {{ 'active' if active_page == 'about' else '' }}">About</a>
+                <a href="{{ url_for('pages.teaching') }}" class="nav-tab {{ 'active' if active_page == 'teaching' else '' }}">Teaching</a>
+                <a href="{{ url_for('pages.publications') }}" class="nav-tab {{ 'active' if active_page == 'publications' else '' }}">Publications</a>
+                <a href="{{ url_for('pages.contact') }}" class="nav-tab {{ 'active' if active_page == 'contact' else '' }}">Contact</a>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

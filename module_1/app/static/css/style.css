@@ -1,0 +1,178 @@
+/* Global Resets and Typography */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #333333;
+    background-color: #ffffff;
+    line-height: 1.6;
+}
+
+/* Header Banner & Navigation */
+.header-banner {
+    background-color: #337ab7;
+    width: 100%;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.nav-container {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: flex-end; /* Aligns navigation bar to the top-right corner */
+    align-items: center;
+    padding: 0 20px;
+}
+
+.navbar {
+    display: flex;
+    list-style: none;
+}
+
+.nav-tab {
+    display: inline-block;
+    padding: 14px 20px;
+    color: #ffffff;
+    text-decoration: none;
+    font-size: 15px;
+    font-weight: 500;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.nav-tab:hover {
+    background-color: #286090;
+    color: #f1f1f1;
+}
+
+/* Highlighted Active Tab */
+.nav-tab.active {
+    background-color: #1e4b75;
+    color: #ffffff;
+    font-weight: 600;
+}
+
+/* Main Content Area */
+.main-content {
+    max-width: 1100px;
+    margin: 30px auto;
+    padding: 0 20px;
+}
+
+/* Headings */
+h1.page-title {
+    font-size: 26px;
+    font-weight: 700;
+    color: #222222;
+    margin-bottom: 6px;
+}
+
+h2.page-subtitle {
+    font-size: 18px;
+    font-weight: 600;
+    color: #555555;
+    margin-bottom: 24px;
+}
+
+h2.section-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #222222;
+    margin-bottom: 20px;
+}
+
+/* Two-column layout for Bio & Image */
+.two-column-layout {
+    display: flex;
+    flex-direction: row;
+    gap: 40px;
+    align-items: flex-start;
+}
+
+.bio-column {
+    flex: 2;
+    font-size: 15px;
+    color: #444444;
+}
+
+.image-column {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+}
+
+.profile-img {
+    max-width: 100%;
+    width: 260px;
+    height: auto;
+    border-radius: 4px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+    object-fit: cover;
+}
+
+/* Content List and Cards (Teaching / Publications / Contact) */
+.item-list {
+    list-style-type: none;
+}
+
+.item-list li {
+    margin-bottom: 18px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid #eeeeee;
+}
+
+.item-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #337ab7;
+    text-decoration: none;
+}
+
+.item-title:hover {
+    text-decoration: underline;
+}
+
+.item-desc {
+    margin-top: 5px;
+    font-size: 14px;
+    color: #555555;
+}
+
+/* Contact Info Styling */
+.contact-info {
+    font-size: 16px;
+    margin-top: 15px;
+}
+
+.contact-info p {
+    margin-bottom: 12px;
+}
+
+.contact-info a {
+    color: #337ab7;
+    text-decoration: none;
+}
+
+.contact-info a:hover {
+    text-decoration: underline;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .nav-container {
+        justify-content: center;
+    }
+    
+    .two-column-layout {
+        flex-direction: column-reverse;
+        align-items: center;
+    }
+    
+    .profile-img {
+        width: 200px;
+        margin-bottom: 20px;
+    }
+}
