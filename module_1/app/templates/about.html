@@ -1,8 +1,26 @@
 {% extends "base.html" %}
 
-{% block title %}About - Noella{% endblock %}
+{% block title %}About - Noella Formin{% endblock %}
 
 {% block content %}
-<h1 class="page-title">Noella</h1>
+<h1 class="page-title">Noella Formin</h1>
 <h2 class="page-subtitle">Student at Johns Hopkins University</h2>
+
+<div class="two-column-layout">
+    <!-- Bio text on the left -->
+    <div class="bio-column">
+        <p>
+            My name is Noella Formin, and I am a Cloud and DevOps Engineer with a professional background in cloud computing, automation, and AWS technologies. I earned my bachelor’s degree in Accounting before transitioning into the technology field, where I discovered my passion for solving complex problems and building innovative solutions.
+        </p>
+        <br>
+        <p>
+            My growing interest in Artificial Intelligence inspired me to further my education at Johns Hopkins University. I am excited to expand my knowledge of AI, strengthen my technical skills, and explore how emerging technologies can be applied to solve real-world problems. Outside of work and academics, I enjoy traveling, spending time with family, and discovering new experiences.
+        </p>
+    </div>
+
+    <!-- Profile image on the right -->
+    <div class="image-column">
+        <img src="{{ url_for('static', filename='images/profile.jpeg') }}" alt="Noella Formin" class="profile-img">
+    </div>
+</div>
 {% endblock %}
