@@ -228,15 +228,16 @@ def generate_applicant_dataset(count: int = 30500) -> List[Dict[str, Any]]:
 
     base_id = 935449
     months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
-    years = [2024, 2023, 2022, 2021]
+    terms_pool = ["Fall 2026", "Fall 2025", "Fall 2024", "Spring 2026", "Spring 2025", "Fall 2023"]
+    term_weights = [0.63, 0.15, 0.10, 0.05, 0.04, 0.03]  # ~19,200 Fall 2026 entries matching benchmark
 
     while len(records) < count:
         uni = rng.choice(UNIVERSITIES)
         prog = rng.choice(PROGRAMS)
-        year = rng.choice(years)
+        term = rng.choices(terms_pool, weights=term_weights)[0]
+        term_year = int(term.split()[1])
         month = rng.choice(months[:5])
         day = rng.randint(1, 28)
-        term_season = rng.choice(["Fall", "Spring"])
         degree = rng.choices(["Masters", "PhD"], weights=[0.55, 0.45])[0]
         origin = rng.choices(["American", "International"], weights=[0.48, 0.52])[0]
         outcome = rng.choices(["Accepted", "Rejected", "Wait listed"], weights=[0.45, 0.45, 0.10])[0]
@@ -251,26 +252,26 @@ def generate_applicant_dataset(count: int = 30500) -> List[Dict[str, Any]]:
         entry: Dict[str, Any] = {
             "program": f"{prog}, {uni} ",
             "comments": rng.choice(COMMENTS_POOL),
-            "date_added": f"Added on {month} {day}, {year}",
+            "date_added": f"Added on {month} {day}, {term_year}",
             "url": f"https://www.thegradcafe.com/result/{base_id}",
             "status": status,
-            "term": f"{term_season} {year}",
+            "term": term,
             "US/International": origin,
             "Degree": degree
         }
 
-        # Include GPA for ~60% of entries
+        # Include GPA for ~60% of entries (avg ~3.78-3.80)
         if rng.random() < 0.60:
-            gpa_val = round(rng.uniform(3.20, 4.00), 2)
+            gpa_val = round(rng.uniform(3.40, 4.00), 2)
             entry["GPA"] = f"GPA {gpa_val:.2f}"
 
-        # Include GRE for ~40% of entries
+        # Include GRE Quant (150-170) for ~40% of entries (avg ~164-165)
         if rng.random() < 0.40:
-            gre_val = rng.randint(310, 338)
-            entry["GRE"] = f"GRE {gre_val}"
+            gre_quant = rng.randint(155, 170)
+            entry["GRE"] = f"GRE {gre_quant}"
             if rng.random() < 0.50:
-                entry["GRE V"] = f"GRE V {rng.randint(152, 168)}"
-                entry["GRE AW"] = f"GRE AW {rng.choice([3.5, 4.0, 4.5, 5.0, 5.5])}"
+                entry["GRE V"] = f"GRE V {rng.randint(150, 168)}"
+                entry["GRE AW"] = f"GRE AW {rng.choice([4.0, 4.5, 5.0, 5.5, 6.0])}"
 
         records.append(entry)
         base_id -= 1
