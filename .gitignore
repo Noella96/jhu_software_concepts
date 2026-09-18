@@ -20,3 +20,6 @@ __pycache__/
 inputs/
 input/
 
+# Canvas submission archives (submitted directly to Canvas, not Git)
+*.zip
+
