@@ -23,3 +23,8 @@ input/
 # Canvas submission archives (submitted directly to Canvas, not Git)
 *.zip
 
+# Coverage cache
+.coverage
+.coverage.*
+.pytest_cache/
+

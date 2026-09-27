@@ -9,8 +9,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 
 CANONICAL_UNIVERSITIES: Dict[str, str] = {
@@ -100,33 +101,52 @@ def standardize_program_and_university(raw_program_str: str) -> Tuple[str, str]:
     return clean_prog, clean_uni
 
 
-def standardize_dataset(
-    input_filepath: str = "module_2/applicant_data.json",
-    output_filepath: str = "module_2/llm_extend_applicant_data.json"
-) -> None:
+def standardize_records(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
-    Load applicant_data.json, standardize names, and write llm_extend_applicant_data.json.
+    Standardize a list of in-memory applicant record dictionaries with canonical fields.
     """
-    print(f"Standardizing dataset from {input_filepath} ...")
-    with open(input_filepath, "r", encoding="utf-8") as f:
-        records: List[Dict[str, Any]] = json.load(f)
-
+    standardized: List[Dict[str, Any]] = []
     for entry in records:
-        raw_program = entry.get("program", "")
+        record_copy = dict(entry)
+        raw_program = record_copy.get("program", "")
         std_prog, std_uni = standardize_program_and_university(raw_program)
-        entry["llm-generated-program"] = std_prog
-        entry["llm-generated-university"] = std_uni
+        record_copy["llm-generated-program"] = std_prog
+        record_copy["llm_generated_program"] = std_prog
+        record_copy["llm-generated-university"] = std_uni
+        record_copy["llm_generated_university"] = std_uni
+        standardized.append(record_copy)
+    return standardized
 
-    with open(output_filepath, "w", encoding="utf-8") as f:
-        json.dump(records, f, indent=2, ensure_ascii=False)
 
-    print(f"Standardized {len(records)} records saved to {output_filepath}")
+def standardize_dataset(
+    input_source: Any = "module_4/src/applicant_data.json",
+    output_filepath: Optional[str] = None
+) -> List[Dict[str, Any]]:
+    """
+    Load applicant data from file or list, standardize canonical names, and optionally save to output file.
+    """
+    if isinstance(input_source, list):
+        records = input_source
+    elif isinstance(input_source, str) and os.path.exists(input_source):
+        with open(input_source, "r", encoding="utf-8") as f:
+            records = json.load(f)
+    else:
+        records = []
+
+    standardized = standardize_records(records)
+
+    if output_filepath:
+        with open(output_filepath, "w", encoding="utf-8") as f:
+            json.dump(standardized, f, indent=2, ensure_ascii=False)
+
+    return standardized
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Standardize applicant data")
-    parser.add_argument("--input", default="module_2/applicant_data.json", help="Input applicant data JSON")
-    parser.add_argument("--output", default="module_2/llm_extend_applicant_data.json", help="Output standardized JSON")
+    parser.add_argument("--input", default="module_4/src/applicant_data.json", help="Input applicant data JSON")
+    parser.add_argument("--output", default="module_4/src/llm_extend_applicant_data.json", help="Output standardized JSON")
     args = parser.parse_args()
 
-    standardize_dataset(input_filepath=args.input, output_filepath=args.output)
+    standardize_dataset(input_source=args.input, output_filepath=args.output)
+
