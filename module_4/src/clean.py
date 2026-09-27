@@ -318,12 +318,17 @@ def load_data(filepath: str) -> List[Dict[str, Any]]:
         return json.load(f)
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """CLI execution entrypoint for data cleaning and generation."""
     import argparse
     parser = argparse.ArgumentParser(description="Clean and Parse Grad Cafe Data")
     parser.add_argument("--count", type=int, default=30500, help="Number of records to generate/parse")
-    parser.add_argument("--output", type=str, default="module_2/applicant_data.json", help="Output JSON path")
+    parser.add_argument("--output", type=str, default="module_4/src/applicant_data.json", help="Output JSON path")
     args = parser.parse_args()
 
     data = generate_applicant_dataset(count=args.count)
     save_data(data, args.output)
+
+
+if __name__ == "__main__":
+    main()

@@ -46,10 +46,9 @@ def check_robots_compliance() -> bool:
         req = urllib.request.Request(ROBOTS_URL, headers=HEADERS)
         with urllib.request.urlopen(req, timeout=10) as response:
             content = response.read().decode("utf-8", errors="ignore")
-            # Verify general user-agent allow directive
-            if "User-agent: *" in content and "Allow: /" in content:
-                print("Robots.txt verified: Survey path is publicly accessible.")
-                return True
+            if "Disallow: /survey" in content:
+                return False
+            print("Robots.txt verified: Survey path is publicly accessible.")
             return True
     except Exception as err:
         print(f"Notice: robots.txt verification completed with note: {err}")
@@ -85,8 +84,7 @@ def fetch_page_html(url: str, max_retries: int = 3, delay: float = 0.5) -> Optio
                 print(f"HTTP Error {http_err.code} fetching {url}: {http_err}")
                 break
         except Exception as err:
-            if attempt == max_retries:
-                print(f"Failed to fetch {url} after {max_retries} attempts: {err}")
+            print(f"Failed to fetch {url} on attempt {attempt}: {err}")
             time.sleep(delay)
     return None
 
@@ -135,7 +133,8 @@ def scrape_data(
     return results
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """CLI execution entrypoint for polite scraping."""
     parser = argparse.ArgumentParser(description="Grad Cafe Admissions Web Scraper")
     parser.add_argument("--start", type=int, default=1, help="Start page number")
     parser.add_argument("--end", type=int, default=5, help="End page number")
@@ -150,3 +149,7 @@ if __name__ == "__main__":
         max_workers=args.workers
     )
     print(f"Successfully scraped {len(scraped_pages)} page(s).")
+
+
+if __name__ == "__main__":
+    main()

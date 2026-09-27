@@ -142,11 +142,16 @@ def standardize_dataset(
     return standardized
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """CLI execution entrypoint for data standardization."""
     parser = argparse.ArgumentParser(description="Standardize applicant data")
     parser.add_argument("--input", default="module_4/src/applicant_data.json", help="Input applicant data JSON")
     parser.add_argument("--output", default="module_4/src/llm_extend_applicant_data.json", help="Output standardized JSON")
     args = parser.parse_args()
 
     standardize_dataset(input_source=args.input, output_filepath=args.output)
+
+
+if __name__ == "__main__":
+    main()
 

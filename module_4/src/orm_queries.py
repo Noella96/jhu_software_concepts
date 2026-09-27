@@ -13,13 +13,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy import and_, case, cast, desc, func, or_, select, Float, Integer, Numeric
 from sqlalchemy.orm import Session
 
-try:
-    from src.models import Applicant, get_db_session
-except ImportError:
-    try:
-        from module_4.src.models import Applicant, get_db_session
-    except ImportError:
-        from models import Applicant, get_db_session
+from src.models import Applicant, get_db_session
 
 
 def orm_question_1(session: Session) -> int:

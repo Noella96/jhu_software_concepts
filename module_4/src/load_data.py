@@ -127,10 +127,7 @@ def parse_numeric(val: Any) -> Optional[float]:
         return None
     match = re.search(r"([0-9]+(?:\.[0-9]+)?)", val_str)
     if match:
-        try:
-            return float(match.group(1))
-        except ValueError:
-            return None
+        return float(match.group(1))
     return None
 
 
