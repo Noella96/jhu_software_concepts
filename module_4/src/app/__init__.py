@@ -19,13 +19,7 @@ def create_app(config: Optional[Dict[str, Any]] = None) -> Flask:
     if config:
         app.config.update(config)
 
-    try:
-        from src.app.routes import main_bp
-    except ImportError:
-        try:
-            from module_4.src.app.routes import main_bp
-        except ImportError:
-            from app.routes import main_bp
+    from src.app.routes import main_bp
 
     app.register_blueprint(main_bp)
 

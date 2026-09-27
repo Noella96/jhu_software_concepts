@@ -11,61 +11,23 @@ from typing import Any, Dict, Optional
 from flask import Blueprint, current_app, jsonify, render_template, request
 from sqlalchemy import func, select
 
-try:
-    from src.app.scraper_service import scraper_manager
-    from src.models import Applicant, get_db_session
-    from src.orm_queries import (
-        orm_question_1,
-        orm_question_4,
-        orm_question_5,
-        orm_question_8,
-        orm_question_9,
-        orm_question_10,
-    )
-    from src.query_data import (
-        run_question_2,
-        run_question_3,
-        run_question_6,
-        run_question_7,
-        run_question_11,
-    )
-except ImportError:
-    try:
-        from module_4.src.app.scraper_service import scraper_manager
-        from module_4.src.models import Applicant, get_db_session
-        from module_4.src.orm_queries import (
-            orm_question_1,
-            orm_question_4,
-            orm_question_5,
-            orm_question_8,
-            orm_question_9,
-            orm_question_10,
-        )
-        from module_4.src.query_data import (
-            run_question_2,
-            run_question_3,
-            run_question_6,
-            run_question_7,
-            run_question_11,
-        )
-    except ImportError:
-        from app.scraper_service import scraper_manager
-        from models import Applicant, get_db_session
-        from orm_queries import (
-            orm_question_1,
-            orm_question_4,
-            orm_question_5,
-            orm_question_8,
-            orm_question_9,
-            orm_question_10,
-        )
-        from query_data import (
-            run_question_2,
-            run_question_3,
-            run_question_6,
-            run_question_7,
-            run_question_11,
-        )
+from src.app.scraper_service import scraper_manager
+from src.models import Applicant, get_db_session
+from src.orm_queries import (
+    orm_question_1,
+    orm_question_4,
+    orm_question_5,
+    orm_question_8,
+    orm_question_9,
+    orm_question_10,
+)
+from src.query_data import (
+    run_question_2,
+    run_question_3,
+    run_question_6,
+    run_question_7,
+    run_question_11,
+)
 
 main_bp = Blueprint("main", __name__)
 

@@ -12,22 +12,10 @@ import threading
 import time
 from typing import Any, Callable, Dict, List, Optional
 
-try:
-    from src.clean import clean_data, generate_applicant_dataset, save_data
-    from src.load_data import get_db_connection, load_data_from_json, load_data_from_records
-    from src.scrape import scrape_data
-    from src.standardize import standardize_dataset
-except ImportError:
-    try:
-        from module_4.src.clean import clean_data, generate_applicant_dataset, save_data
-        from module_4.src.load_data import get_db_connection, load_data_from_json, load_data_from_records
-        from module_4.src.scrape import scrape_data
-        from module_4.src.standardize import standardize_dataset
-    except ImportError:
-        from clean import clean_data, generate_applicant_dataset, save_data
-        from load_data import get_db_connection, load_data_from_json, load_data_from_records
-        from scrape import scrape_data
-        from standardize import standardize_dataset
+from src.clean import clean_data, generate_applicant_dataset, save_data
+from src.load_data import get_db_connection, load_data_from_json, load_data_from_records
+from src.scrape import scrape_data
+from src.standardize import standardize_dataset
 
 
 class ScraperManager:
