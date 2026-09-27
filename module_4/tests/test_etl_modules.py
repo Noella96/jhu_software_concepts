@@ -443,11 +443,22 @@ def test_cli_runners_and_main_entrypoints(tmp_path):
         assert p.get("user") == "custom_user"
         assert p.get("password") == "custom_pass"
 
-    # 8. Test load_data.get_db_connection with conninfo param and kwargs
+    # 8. Test load_data.get_db_connection with conninfo param and kwargs fallback
     with mock.patch("psycopg.connect") as mock_psycopg_conn:
         from src.load_data import get_db_connection as ld_get_conn
         ld_get_conn("postgresql://usr:pwd@localhost:5432/mydb")
         mock_psycopg_conn.assert_called_with("postgresql://usr:pwd@localhost:5432/mydb")
+
+        # Test kwargs fallback when DATABASE_URL is not in environment
+        with mock.patch.dict(os.environ, {"POSTGRES_DB": "gradcafe_db", "POSTGRES_USER": "usr", "POSTGRES_PASSWORD": "pwd", "POSTGRES_HOST": "localhost", "POSTGRES_PORT": "5432"}, clear=True):
+            ld_get_conn()
+            mock_psycopg_conn.assert_called_with(
+                dbname="gradcafe_db",
+                host="localhost",
+                port=5432,
+                user="usr",
+                password="pwd",
+            )
 
     # 9. Test load_data_from_records when p_id is None
     mock_conn = mock.MagicMock()
