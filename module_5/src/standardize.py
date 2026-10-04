@@ -1,6 +1,7 @@
 """
 Local LLM Standardization Pipeline for Graduate Applicant Data.
-Module 2 - Johns Hopkins University Software Concepts (EN.605.601)
+Module 5 - Software Assurance & Secure SQL (SQLi Defense)
+Johns Hopkins University - Software Concepts (EN.605.601)
 
 Performs entity standardization, abbreviation expansion, and canonical normalization
 for University and Program names, generating llm_extend_applicant_data.json.
@@ -10,9 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import re
 from typing import Any, Dict, List, Optional, Tuple
-
 
 CANONICAL_UNIVERSITIES: Dict[str, str] = {
     "mcgill": "McGill University",
@@ -72,14 +71,12 @@ CANONICAL_UNIVERSITIES: Dict[str, str] = {
 
 
 def standardize_program_and_university(raw_program_str: str) -> Tuple[str, str]:
-    """
-    Parse and standardize program name and university name from raw string.
-    """
+    """Parse and standardize program name and university name from raw string."""
     if not raw_program_str:
         return "General Program", "Unknown University"
 
     parts = [p.strip() for p in raw_program_str.split(",") if p.strip()]
-    
+
     if len(parts) >= 2:
         raw_prog = parts[0]
         raw_uni = parts[1]
@@ -89,7 +86,6 @@ def standardize_program_and_university(raw_program_str: str) -> Tuple[str, str]:
     else:
         return "General Program", "Unknown University"
 
-    # Standardize university name using canonical mapping
     clean_uni = raw_uni
     raw_uni_lower = raw_uni.lower()
     for key, canon_name in CANONICAL_UNIVERSITIES.items():
@@ -102,9 +98,7 @@ def standardize_program_and_university(raw_program_str: str) -> Tuple[str, str]:
 
 
 def standardize_records(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """
-    Standardize a list of in-memory applicant record dictionaries with canonical fields.
-    """
+    """Standardize a list of in-memory applicant record dictionaries with canonical fields."""
     standardized: List[Dict[str, Any]] = []
     for entry in records:
         record_copy = dict(entry)
@@ -119,11 +113,11 @@ def standardize_records(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 
 def standardize_dataset(
-    input_source: Any = "module_4/src/applicant_data.json",
+    input_source: Any = "module_5/src/applicant_data.json",
     output_filepath: Optional[str] = None
 ) -> List[Dict[str, Any]]:
     """
-    Load applicant data from file or list, standardize canonical names, and optionally save to output file.
+    Load applicant data, standardize canonical names, and optionally save to output file.
     """
     if isinstance(input_source, list):
         records = input_source
@@ -145,8 +139,14 @@ def standardize_dataset(
 def main() -> None:
     """CLI execution entrypoint for data standardization."""
     parser = argparse.ArgumentParser(description="Standardize applicant data")
-    parser.add_argument("--input", default="module_4/src/applicant_data.json", help="Input applicant data JSON")
-    parser.add_argument("--output", default="module_4/src/llm_extend_applicant_data.json", help="Output standardized JSON")
+    parser.add_argument(
+        "--input", default="module_5/src/applicant_data.json", help="Input applicant data JSON"
+    )
+    parser.add_argument(
+        "--output",
+        default="module_5/src/llm_extend_applicant_data.json",
+        help="Output standardized JSON",
+    )
     args = parser.parse_args()
 
     standardize_dataset(input_source=args.input, output_filepath=args.output)
@@ -154,4 +154,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

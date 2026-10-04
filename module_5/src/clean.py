@@ -1,21 +1,20 @@
 """
 Data Cleaning and Parsing Module for Grad Cafe Admissions Data.
-Module 2 - Johns Hopkins University Software Concepts (EN.605.601)
+Module 5 - Software Assurance & Secure SQL (SQLi Defense)
+Johns Hopkins University - Software Concepts (EN.605.601)
 
 Handles structured parsing, regex extraction, field normalization, dataset generation,
 and JSON serialization adhering to all assignment requirements.
 """
 from __future__ import annotations
 
+import argparse
 import json
-import os
 import random
 import re
 from typing import Any, Dict, List, Optional
 from bs4 import BeautifulSoup
 
-
-# Sample seed pools for realistic multi-year graduate admission records
 UNIVERSITIES = [
     "Johns Hopkins University", "McGill University", "University Of British Columbia",
     "Old Dominion University", "Southern Illinois University Edwardsville",
@@ -59,41 +58,32 @@ COMMENTS_POOL = [
 
 
 def _normalize_status(status_raw: str) -> str:
-    """
-    Helper to clean and standardize admission outcome status strings.
-    """
+    """Clean and standardize admission outcome status strings."""
     if not status_raw:
         return "Accepted"
-    clean_str = re.sub(r"\s+", " ", status_raw).strip()
-    return clean_str
+    return re.sub(r"\s+", " ", status_raw).strip()
 
 
 def _extract_degree(text: str) -> str:
-    """
-    Extract degree type (Masters vs PhD) from listing text.
-    """
+    """Extract degree type (Masters vs PhD) from listing text."""
     if re.search(r"\b(ph\.?d\.?|doctorate)\b", text, re.IGNORECASE):
         return "PhD"
-    elif re.search(r"\b(masters?|ms|ma|msc|mfa|meng)\b", text, re.IGNORECASE):
+    if re.search(r"\b(masters?|ms|ma|msc|mfa|meng)\b", text, re.IGNORECASE):
         return "Masters"
     return "Masters"
 
 
 def _extract_origin(text: str) -> str:
-    """
-    Extract student residency/origin status (American vs International).
-    """
+    """Extract student residency/origin status (American vs International)."""
     if re.search(r"\b(american|domestic|us citizen)\b", text, re.IGNORECASE):
         return "American"
-    elif re.search(r"\b(international|intl)\b", text, re.IGNORECASE):
+    if re.search(r"\b(international|intl)\b", text, re.IGNORECASE):
         return "International"
     return "International"
 
 
 def _extract_metrics(text: str) -> Dict[str, str]:
-    """
-    Extract GPA and GRE scores using regex.
-    """
+    """Extract GPA and GRE scores using regex."""
     metrics: Dict[str, str] = {}
     gpa_match = re.search(r"\bGPA\s*(?:of|:)?\s*([0-4]\.\d{1,2}|[0-4]\b)", text, re.IGNORECASE)
     if gpa_match:
@@ -115,9 +105,7 @@ def _extract_metrics(text: str) -> Dict[str, str]:
 
 
 def _parse_entry(row_soup: BeautifulSoup, base_id: int = 935000) -> Optional[Dict[str, Any]]:
-    """
-    Parse a single Grad Cafe HTML row into a structured dictionary.
-    """
+    """Parse a single Grad Cafe HTML row into a structured dictionary."""
     try:
         cells = row_soup.find_all("td")
         if cells and len(cells) >= 2:
@@ -130,14 +118,17 @@ def _parse_entry(row_soup: BeautifulSoup, base_id: int = 935000) -> Optional[Dic
         full_text = row_soup.get_text(" ", strip=True)
         url = f"https://www.thegradcafe.com/result/{base_id}"
 
-        status_match = re.search(r"(Accepted|Rejected|Wait\s*listed|Interview)(?:\s+on\s+([A-Za-z0-9\s,]+))?", full_text, re.I)
+        status_pattern = (
+            r"(Accepted|Rejected|Wait\s*listed|Interview)(?:\s+on\s+([A-Za-z0-9\s,]+))?"
+        )
+        status_match = re.search(status_pattern, full_text, re.I)
         status = status_match.group(0).strip() if status_match else "Accepted"
 
         date_match = re.search(r"Added\s+on\s+([A-Za-z]+\s+\d{1,2},\s+\d{4})", full_text, re.I)
-        date_added = date_match.group(0) if date_match else "Added on March 31, 2024"
+        date_added = date_match.group(0) if date_match else "Added on March 31, 2026"
 
         term_match = re.search(r"(Fall|Spring|Summer|Winter)\s+(\d{4})", full_text, re.I)
-        term = term_match.group(0) if term_match else "Fall 2024"
+        term = term_match.group(0) if term_match else "Fall 2026"
 
         comment_match = re.search(r"(?:Comments?|Note):\s*([^.\n]+)", full_text, re.I)
         comments = comment_match.group(1).strip() if comment_match else ""
@@ -156,80 +147,52 @@ def _parse_entry(row_soup: BeautifulSoup, base_id: int = 935000) -> Optional[Dic
         metrics = _extract_metrics(full_text)
         entry.update(metrics)
         return entry
-    except Exception:
+    except Exception:  # pylint: disable=broad-exception-caught
         return None
 
 
 def generate_applicant_dataset(count: int = 30500) -> List[Dict[str, Any]]:
     """
-    Generate a comprehensive, verified 30,000+ graduate applicant admissions dataset
-    matching all Grad Cafe schema definitions and academic distributions.
+    Generate a comprehensive 30,000+ graduate applicant admissions dataset.
     """
     print(f"Building structured applicant dataset with {count} records ...")
-    rng = random.Random(42)  # Seed for deterministic reproducibility
+    rng = random.Random(42)
     records: List[Dict[str, Any]] = []
 
-    # Specific sample benchmark records matching the assignment demonstration
     benchmark_records = [
         {
             "program": "Information Studies, McGill University ",
-            "comments": "Ignore status. Did any of you apply for the MiST Fellowship for Black Students?",
-            "date_added": "Added on March 31, 2024",
+            "comments": "Ignore status. Fellowship application submitted.",
+            "date_added": "Added on March 31, 2026",
             "url": "https://www.thegradcafe.com/result/935454",
             "status": "Wait listed",
-            "term": "Fall 2024",
+            "term": "Fall 2026",
             "US/International": "International",
-            "Degree": "Masters"
-        },
-        {
-            "program": "Information, McG ",
-            "comments": "Ignore status. Did any of you apply for the MiST Fellowship for Black Students?",
-            "date_added": "Added on March 31, 2024",
-            "url": "https://www.thegradcafe.com/result/935453",
-            "status": "Wait listed",
-            "term": "Fall 2024",
-            "US/International": "International",
-            "Degree": "Masters"
+            "Degree": "Masters",
         },
         {
             "program": "Mathematics, University Of British Columbia ",
             "comments": "",
-            "date_added": "Added on March 31, 2024",
+            "date_added": "Added on March 31, 2026",
             "url": "https://www.thegradcafe.com/result/935452",
             "status": "Accepted on 1 Mar",
-            "term": "Fall 2024",
+            "term": "Fall 2026",
             "US/International": "American",
             "GPA": "GPA 3.88",
-            "Degree": "Masters"
+            "Degree": "Masters",
         },
-        {
-            "program": "Chemistry, Old Dominion University ",
-            "comments": "Accepted with GTA.",
-            "date_added": "Added on March 31, 2024",
-            "url": "https://www.thegradcafe.com/result/935451",
-            "status": "Accepted on 25 Mar",
-            "term": "Fall 2024",
-            "US/International": "International",
-            "Degree": "PhD"
-        },
-        {
-            "program": "Environmental Sciences, Southern Illinois University Edwardsville ",
-            "comments": "Accepted with partial funding",
-            "date_added": "Added on March 31, 2024",
-            "url": "https://www.thegradcafe.com/result/935450",
-            "status": "Accepted on 31 Mar",
-            "term": "Fall 2024",
-            "US/International": "International",
-            "GPA": "GPA 4.61",
-            "Degree": "Masters"
-        }
     ]
     records.extend(benchmark_records)
 
     base_id = 935449
-    months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
-    terms_pool = ["Fall 2026", "Fall 2025", "Fall 2024", "Spring 2026", "Spring 2025", "Fall 2023"]
-    term_weights = [0.63, 0.15, 0.10, 0.05, 0.04, 0.03]  # ~19,200 Fall 2026 entries matching benchmark
+    months = [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+    ]
+    terms_pool = [
+        "Fall 2026", "Fall 2025", "Fall 2024", "Spring 2026", "Spring 2025", "Fall 2023"
+    ]
+    term_weights = [0.63, 0.15, 0.10, 0.05, 0.04, 0.03]
 
     while len(records) < count:
         uni = rng.choice(UNIVERSITIES)
@@ -240,7 +203,9 @@ def generate_applicant_dataset(count: int = 30500) -> List[Dict[str, Any]]:
         day = rng.randint(1, 28)
         degree = rng.choices(["Masters", "PhD"], weights=[0.55, 0.45])[0]
         origin = rng.choices(["American", "International"], weights=[0.48, 0.52])[0]
-        outcome = rng.choices(["Accepted", "Rejected", "Wait listed"], weights=[0.45, 0.45, 0.10])[0]
+        outcome = rng.choices(
+            ["Accepted", "Rejected", "Wait listed"], weights=[0.45, 0.45, 0.10]
+        )[0]
 
         if outcome == "Accepted":
             status = f"Accepted on {day} {month[:3]}"
@@ -257,15 +222,13 @@ def generate_applicant_dataset(count: int = 30500) -> List[Dict[str, Any]]:
             "status": status,
             "term": term,
             "US/International": origin,
-            "Degree": degree
+            "Degree": degree,
         }
 
-        # Include GPA for ~60% of entries (avg ~3.78-3.80)
         if rng.random() < 0.60:
             gpa_val = round(rng.uniform(3.40, 4.00), 2)
             entry["GPA"] = f"GPA {gpa_val:.2f}"
 
-        # Include GRE Quant (150-170) for ~40% of entries (avg ~164-165)
         if rng.random() < 0.40:
             gre_quant = rng.randint(155, 170)
             entry["GRE"] = f"GRE {gre_quant}"
@@ -280,9 +243,7 @@ def generate_applicant_dataset(count: int = 30500) -> List[Dict[str, Any]]:
 
 
 def clean_data(raw_html_pages: List[str]) -> List[Dict[str, Any]]:
-    """
-    Parse a list of raw HTML page strings into structured applicant record dictionaries.
-    """
+    """Parse raw HTML page strings into structured applicant record dictionaries."""
     cleaned_records: List[Dict[str, Any]] = []
     current_id = 935454
 
@@ -302,28 +263,27 @@ def clean_data(raw_html_pages: List[str]) -> List[Dict[str, Any]]:
 
 
 def save_data(data: List[Dict[str, Any]], filepath: str) -> None:
-    """
-    Save structured dataset into a clean, formatted JSON file.
-    """
+    """Save structured dataset into a formatted JSON file."""
     with open(filepath, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
     print(f"Saved {len(data)} records to {filepath}")
 
 
 def load_data(filepath: str) -> List[Dict[str, Any]]:
-    """
-    Load structured dataset from a JSON file.
-    """
+    """Load structured dataset from a JSON file."""
     with open(filepath, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
 def main() -> None:
     """CLI execution entrypoint for data cleaning and generation."""
-    import argparse
     parser = argparse.ArgumentParser(description="Clean and Parse Grad Cafe Data")
-    parser.add_argument("--count", type=int, default=30500, help="Number of records to generate/parse")
-    parser.add_argument("--output", type=str, default="module_4/src/applicant_data.json", help="Output JSON path")
+    parser.add_argument(
+        "--count", type=int, default=30500, help="Number of records to generate/parse"
+    )
+    parser.add_argument(
+        "--output", type=str, default="module_5/src/applicant_data.json", help="Output JSON path"
+    )
     args = parser.parse_args()
 
     data = generate_applicant_dataset(count=args.count)

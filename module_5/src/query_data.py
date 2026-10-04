@@ -27,7 +27,7 @@ def clamp_limit(
     max_limit: int = DEFAULT_MAX_LIMIT,
 ) -> int:
     """
-    Validate and clamp query LIMIT values to prevent denial of service or excessive data exposure.
+    Validate and clamp query LIMIT values to prevent denial of service or excessive exposure.
 
     :param limit: Requested limit (can be None or invalid)
     :param default_limit: Fallback limit if none provided or non-positive
@@ -91,7 +91,8 @@ def run_question_1(conn: psycopg.Connection, term_pattern: str = "%Fall 2026%") 
 
 def run_question_2(conn: psycopg.Connection) -> float:
     """
-    Question 2: Among entries providing nationality classification, what percentage are international?
+    Question 2: Among entries providing nationality classification, what percentage
+    are international students?
     """
     stmt = sql.SQL(
         """
@@ -348,7 +349,7 @@ def run_question_10(
     limit: int = 5,
 ) -> List[Dict[str, Any]]:
     """
-    Question 10 (Original Question 1): Top universities by CS applicant submissions and acceptance rate.
+    Question 10 (Original Question 1): Top universities by CS applicants and acceptance rate.
     Enforces clamped LIMIT parameterization.
     """
     safe_limit = clamp_limit(limit, default_limit=5, max_limit=50)
@@ -358,7 +359,10 @@ def run_question_10(
             {uni_col} AS university,
             COUNT(*) AS total_applicants,
             COUNT(*) FILTER (WHERE {status_col} ILIKE %s) AS accepted_count,
-            ROUND(COUNT(*) FILTER (WHERE {status_col} ILIKE %s) * 100.0 / COUNT(*), 2) AS acceptance_rate_pct
+            ROUND(
+                COUNT(*) FILTER (WHERE {status_col} ILIKE %s) * 100.0 / COUNT(*),
+                2
+            ) AS acceptance_rate_pct
         FROM {table}
         WHERE {prog_col} ILIKE %s
           AND {uni_col} IS NOT NULL
@@ -444,12 +448,12 @@ def query_applicants_dynamic(
         "url",
         "status",
         "term",
-        "degree",
         "us_or_international",
         "gpa",
         "gre",
         "gre_v",
         "gre_aw",
+        "degree",
         "llm_generated_program",
         "llm_generated_university",
     }
@@ -562,25 +566,33 @@ def print_formatted_results() -> None:
         print(f"Applicant count: {q7:,}")
 
         q8 = run_question_8(conn)
-        print("\n[Question 8] Fall 2026 Accepted PhD CS (Georgetown, MIT, Stanford, CMU - Original Fields):")
+        print("\n[Question 8] Fall 2026 Accepted PhD CS (Top 4 Universities - Original):")
         print(f"Applicant count: {q8}")
 
         q8_c, q9_c, diff = run_question_9(conn)
         diff_str = f"+{diff}" if diff > 0 else str(diff)
-        print("\n[Question 9] Fall 2026 Accepted PhD CS (LLM Standardized Fields vs Original):")
+        print("\n[Question 9] Fall 2026 Accepted PhD CS (LLM Standardized vs Original):")
         print(f"Original-field count: {q8_c}")
         print(f"LLM-field count: {q9_c}")
         print(f"Difference: {diff_str}")
 
         q10 = run_question_10(conn)
-        print("\n[Question 10 - Original Question 1] Top 5 Universities by CS Applicant Volume & Acceptance Rate:")
+        print("\n[Question 10 - Original Question 1] Top 5 Universities by Volume:")
         for r in q10:
-            print(f"  - {r['university']}: {r['total_applicants']} applicants | {r['accepted_count']} accepted ({r['acceptance_rate_pct']}%)")
+            uni = r['university']
+            tot = r['total_applicants']
+            acc = r['accepted_count']
+            pct = r['acceptance_rate_pct']
+            print(f"  - {uni}: {tot} applicants | {acc} accepted ({pct}%)")
 
         q11 = run_question_11(conn)
-        print("\n[Question 11 - Original Question 2] Accepted vs. Rejected Fall 2026 Metric Comparison:")
+        print("\n[Question 11 - Original Question 2] Accepted vs. Rejected Metrics:")
         for r in q11:
-            print(f"  - {r['admission_outcome']}: Count = {r['applicant_count']:,} | Avg GPA = {r['avg_gpa']} | Avg GRE Quant = {r['avg_gre_quant']}")
+            outcome = r['admission_outcome']
+            cnt = r['applicant_count']
+            avg_g = r['avg_gpa']
+            avg_q = r['avg_gre_quant']
+            print(f"  - {outcome}: Count = {cnt:,} | Avg GPA = {avg_g} | Avg GRE Quant = {avg_q}")
 
         print("\n" + "=" * 70)
     finally:

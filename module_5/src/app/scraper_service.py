@@ -1,19 +1,19 @@
 """
 Scraper Integration and Ingestion Service.
-Module 4 - Johns Hopkins University Software Concepts (EN.605.601)
+Module 5 - Software Assurance & Secure SQL (SQLi Defense)
+Johns Hopkins University - Software Concepts (EN.605.601)
 
 Provides thread-safe background task execution for pulling fresh Grad Café admissions data,
-cleaning/standardizing records, and updating the PostgreSQL applicants table with observable busy states.
+cleaning/standardizing records, and updating the PostgreSQL applicants table with observable states.
 """
 from __future__ import annotations
 
-import os
 import threading
 import time
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, Optional
 
-from src.clean import clean_data, generate_applicant_dataset, save_data
-from src.load_data import get_db_connection, load_data_from_json, load_data_from_records
+from src.clean import clean_data, generate_applicant_dataset
+from src.load_data import get_db_connection, load_data_from_records
 from src.scrape import scrape_data
 from src.standardize import standardize_dataset
 
@@ -21,7 +21,7 @@ from src.standardize import standardize_dataset
 class ScraperManager:
     """
     Thread-safe manager for orchestrating background Grad Café scrapes and database syncs.
-    Prevents concurrent scrape conflicts, allows test double injection, and provides status reporting.
+    Prevents concurrent scrape conflicts, allows test double injection, and provides reporting.
     """
     _instance: Optional[ScraperManager] = None
     _lock = threading.Lock()
@@ -30,20 +30,23 @@ class ScraperManager:
         with cls._lock:
             if cls._instance is None:
                 cls._instance = super().__new__(cls)
-                cls._instance._init_manager()
             return cls._instance
 
-    def _init_manager(self) -> None:
+    def __init__(self) -> None:
+        if getattr(self, "_initialized", False):
+            return
+        self._initialized = True
         self.is_running = False
         self.last_status = "Idle. Ready to pull newly available data."
-        self.last_updated = None
+        self.last_updated: Optional[str] = None
         self.records_added = 0
-        self.error_message = None
+        self.error_message: Optional[str] = None
         self.custom_scraper: Optional[Callable[..., Any]] = None
         self.custom_loader: Optional[Callable[..., Any]] = None
         self._thread_lock = threading.Lock()
 
     def get_status(self) -> Dict[str, Any]:
+        """Return the current execution status and metrics."""
         with self._thread_lock:
             return {
                 "is_running": self.is_running,
@@ -57,19 +60,15 @@ class ScraperManager:
     def set_test_doubles(
         self,
         custom_scraper: Optional[Callable[..., Any]] = None,
-        custom_loader: Optional[Callable[..., Any]] = None
+        custom_loader: Optional[Callable[..., Any]] = None,
     ) -> None:
-        """
-        Inject test doubles for deterministic unit testing without hitting live network or PostgreSQL.
-        """
+        """Inject test doubles for deterministic unit testing without hitting live network."""
         with self._thread_lock:
             self.custom_scraper = custom_scraper
             self.custom_loader = custom_loader
 
     def reset_state(self) -> None:
-        """
-        Reset manager state between test runs.
-        """
+        """Reset manager state between test runs."""
         with self._thread_lock:
             self.is_running = False
             self.last_status = "Idle. Ready to pull newly available data."
@@ -93,48 +92,49 @@ class ScraperManager:
         if synchronous:
             self._run_scrape_and_sync(max_pages)
             return True
-        else:
-            thread = threading.Thread(target=self._run_scrape_and_sync, args=(max_pages,), daemon=True)
-            thread.start()
-            return True
 
-    def _run_scrape_and_sync(self, max_pages: int) -> None:
+        thread = threading.Thread(
+            target=self._run_scrape_and_sync, args=(max_pages,), daemon=True
+        )
+        thread.start()
+        return True
+
+    def _run_scrape_and_sync(self, max_pages: int = 3) -> None:
+        """Internal worker executing scrape, clean, standardize, and load workflow."""
         try:
-            with self._thread_lock:
-                scraper_fn = self.custom_scraper
-                loader_fn = self.custom_loader
-
-            if scraper_fn is not None:
-                new_records = scraper_fn()
+            if self.custom_scraper:
+                raw_records = self.custom_scraper()
             else:
-                scraped_tuples = scrape_data(start_page=1, end_page=max_pages, delay=0.5)
-                raw_pages = [html for _, html in scraped_tuples if html]
-                new_records = clean_data(raw_pages) if raw_pages else []
-                if not new_records:
-                    new_records = generate_applicant_dataset(count=50)
+                pages = scrape_data(start_page=1, end_page=max_pages, delay=0.1, max_workers=2)
+                html_list = [html for _, html in pages if html]
+                raw_records = clean_data(html_list)
 
-            # Standardize records
-            standardized = standardize_dataset(new_records)
+            if not raw_records:
+                raw_records = generate_applicant_dataset(count=10)
 
-            if loader_fn is not None:
-                loaded = loader_fn(standardized)
+            standardized = standardize_dataset(input_source=raw_records)
+
+            if self.custom_loader:
+                added = self.custom_loader(standardized)
             else:
                 conn = get_db_connection()
-                loaded = load_data_from_records(standardized, conn)
-                conn.close()
+                try:
+                    added = load_data_from_records(standardized, conn)
+                finally:
+                    conn.close()
 
             with self._thread_lock:
-                self.records_added = loaded
+                self.records_added = added
                 self.last_updated = time.strftime("%Y-%m-%d %H:%M:%S")
-                self.last_status = f"Successfully synchronized {loaded} new/updated records to PostgreSQL."
+                self.last_status = f"Completed successfully. Added {added} fresh records."
                 self.is_running = False
 
-        except Exception as e:
+        except Exception as err:  # pylint: disable=broad-exception-caught
             with self._thread_lock:
                 self.is_running = False
-                self.error_message = str(e)
-                self.last_status = f"Data pull encountered an error: {e}"
+                self.error_message = str(err)
+                self.last_status = f"Pull failed: {err}"
 
 
-# Singleton instance
+# Global singleton instance
 scraper_manager = ScraperManager()

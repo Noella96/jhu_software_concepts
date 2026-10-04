@@ -55,7 +55,10 @@ def get_database_uri(custom_url: Optional[str] = None) -> str:
     if database_url:
         if database_url.startswith("postgres://"):
             database_url = database_url.replace("postgres://", "postgresql+psycopg://", 1)
-        elif database_url.startswith("postgresql://") and not database_url.startswith("postgresql+"):
+        elif (
+            database_url.startswith("postgresql://")
+            and not database_url.startswith("postgresql+")
+        ):
             database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
         return database_url
 
@@ -87,7 +90,10 @@ def get_engine(custom_url: Optional[str] = None):
 
 
 # Global session factory
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=get_engine())
+SessionLocal = sessionmaker(  # pylint: disable=invalid-name
+    autocommit=False, autoflush=False, bind=get_engine()
+)
+
 
 
 def get_db_session(custom_engine=None) -> Session:

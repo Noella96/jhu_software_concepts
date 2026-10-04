@@ -10,7 +10,7 @@ Features:
 """
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 from flask import Blueprint, jsonify, render_template, request
 from sqlalchemy import func, select
 
@@ -135,7 +135,9 @@ def pull_data():
             "ok": True,
             "success": True,
             "busy": False,
-            "message": "Pull Data started. Scraping Grad Café for newly submitted application results...",
+            "message": (
+                "Pull Data started. Scraping Grad Café for newly submitted application results..."
+            ),
             "is_running": not sync_mode
         }), 200
 

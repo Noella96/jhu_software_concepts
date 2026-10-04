@@ -1,0 +1,24 @@
+[MAIN]
+# Module 5 Pylint Configuration
+# Johns Hopkins University - Software Concepts (EN.605.601)
+py-version = 3.12
+source-roots = src
+
+[FORMAT]
+max-line-length = 100
+max-module-lines = 1000
+
+[DESIGN]
+max-args = 7
+max-locals = 30
+max-returns = 6
+max-branches = 15
+max-statements = 60
+max-attributes = 10
+min-public-methods = 0
+
+[MESSAGES CONTROL]
+disable =
+    duplicate-code,
+    not-callable,
+    too-few-public-methods

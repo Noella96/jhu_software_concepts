@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
 Application Runner for Grad Café Admissions Analysis Dashboard.
-Module 4 - Johns Hopkins University Software Concepts (EN.605.601)
+Module 5 - Software Assurance & Secure SQL (SQLi Defense)
+Johns Hopkins University - Software Concepts (EN.605.601)
 """
 import os
-import sys
 
 from src.app import create_app
 

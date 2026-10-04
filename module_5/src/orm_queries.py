@@ -1,16 +1,16 @@
 """
 SQLAlchemy ORM Query Analysis Module for Grad Café Admissions Data.
-Module 4 - Johns Hopkins University Software Concepts (EN.605.601)
+Module 5 - Software Assurance & Secure SQL (SQLi Defense)
+Johns Hopkins University - Software Concepts (EN.605.601)
 
 Executes pure SQLAlchemy 2.0 ORM queries repeating Questions 1, 4, 5, 8, 9,
-and Original Question 10 without using raw SQL or text() constructs.
+and Original Question 10 without using raw SQL or string formatting.
 """
 from __future__ import annotations
 
-import os
 from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import and_, case, cast, desc, func, or_, select, Float, Integer, Numeric
+from sqlalchemy import and_, case, cast, desc, func, or_, select, Float, Numeric
 from sqlalchemy.orm import Session
 
 from src.models import Applicant, get_db_session
@@ -20,7 +20,7 @@ def orm_question_1(session: Session) -> int:
     """
     Question 1: How many entries in your database are from applicants who applied for Fall 2026?
     """
-    stmt = select(func.count(Applicant.p_id)).where(
+    stmt = select(func.count(Applicant.p_id)).where(  # pylint: disable=not-callable
         Applicant.term.ilike("%Fall 2026%")
     )
     result = session.scalar(stmt)
@@ -35,7 +35,7 @@ def orm_question_4(session: Session) -> float:
         and_(
             Applicant.term.ilike("%Fall 2026%"),
             func.lower(Applicant.us_or_international) == "american",
-            Applicant.gpa.isnot(None)
+            Applicant.gpa.isnot(None),
         )
     )
     result = session.scalar(stmt)
@@ -47,8 +47,9 @@ def orm_question_5(session: Session) -> float:
     Question 5: What percentage of Fall 2025 entries are acceptances?
     """
     accepted_case = case((Applicant.status.ilike("%accept%"), 1), else_=0)
+    count_call = func.count(Applicant.p_id)  # pylint: disable=not-callable
     stmt = select(
-        cast(func.sum(accepted_case), Float) * 100.0 / func.nullif(func.count(Applicant.p_id), 0)
+        cast(func.sum(accepted_case), Float) * 100.0 / func.nullif(count_call, 0)
     ).where(
         Applicant.term.ilike("%Fall 2025%")
     )
@@ -58,24 +59,23 @@ def orm_question_5(session: Session) -> float:
 
 def orm_question_8(session: Session) -> int:
     """
-    Question 8: Using original downloaded fields, how many Fall 2026 entries are acceptances
-    from applicants applying for a PhD in Computer Science at Georgetown, MIT, Stanford, or CMU?
+    Question 8: Fall 2026 accepted CS PhDs (Georgetown, MIT, Stanford, CMU - Original Fields).
     """
     uni_filters = or_(
         Applicant.program.ilike("%Georgetown%"),
         Applicant.program.ilike("%Massachusetts Institute of Technology%"),
         Applicant.program.ilike("%MIT%"),
         Applicant.program.ilike("%Stanford%"),
-        Applicant.program.ilike("%Carnegie Mellon%")
+        Applicant.program.ilike("%Carnegie Mellon%"),
     )
 
-    stmt = select(func.count(Applicant.p_id)).where(
+    stmt = select(func.count(Applicant.p_id)).where(  # pylint: disable=not-callable
         and_(
             Applicant.term.ilike("%Fall 2026%"),
             Applicant.status.ilike("%accept%"),
             Applicant.degree.ilike("%phd%"),
             Applicant.program.ilike("%Computer Science%"),
-            uni_filters
+            uni_filters,
         )
     )
     result = session.scalar(stmt)
@@ -94,16 +94,16 @@ def orm_question_9(session: Session) -> Tuple[int, int, int]:
         Applicant.llm_generated_university.ilike("%Massachusetts Institute of Technology%"),
         Applicant.llm_generated_university.ilike("%MIT%"),
         Applicant.llm_generated_university.ilike("%Stanford%"),
-        Applicant.llm_generated_university.ilike("%Carnegie Mellon%")
+        Applicant.llm_generated_university.ilike("%Carnegie Mellon%"),
     )
 
-    stmt = select(func.count(Applicant.p_id)).where(
+    stmt = select(func.count(Applicant.p_id)).where(  # pylint: disable=not-callable
         and_(
             Applicant.term.ilike("%Fall 2026%"),
             Applicant.status.ilike("%accept%"),
             Applicant.degree.ilike("%phd%"),
             Applicant.llm_generated_program.ilike("%Computer Science%"),
-            uni_filters
+            uni_filters,
         )
     )
     q9_count = int(session.scalar(stmt) or 0)
@@ -113,25 +113,26 @@ def orm_question_9(session: Session) -> Tuple[int, int, int]:
 
 def orm_question_10(session: Session) -> List[Dict[str, Any]]:
     """
-    Original Question 10: Top 5 Universities by Computer Science Applicant Volume & Acceptance Rate.
+    Original Question 10: Top 5 Universities by CS Applicant Volume & Acceptance Rate.
     """
     accepted_case = case((Applicant.status.ilike("%accept%"), 1), else_=0)
-    pct_expr = cast(func.sum(accepted_case) * 100.0 / func.count(Applicant.p_id), Numeric)
+    count_call = func.count(Applicant.p_id)  # pylint: disable=not-callable
+    pct_expr = cast(func.sum(accepted_case) * 100.0 / count_call, Numeric)
     stmt = select(
         Applicant.llm_generated_university.label("university"),
-        func.count(Applicant.p_id).label("total_applicants"),
+        count_call.label("total_applicants"),
         func.sum(accepted_case).label("accepted_count"),
-        func.round(pct_expr, 2).label("acceptance_rate_pct")
+        func.round(pct_expr, 2).label("acceptance_rate_pct"),
     ).where(
         and_(
             Applicant.llm_generated_program.ilike("%Computer Science%"),
-            Applicant.llm_generated_university.isnot(None)
+            Applicant.llm_generated_university.isnot(None),
         )
     ).group_by(
         Applicant.llm_generated_university
     ).order_by(
         desc("total_applicants"),
-        desc("acceptance_rate_pct")
+        desc("acceptance_rate_pct"),
     ).limit(5)
 
     results = session.execute(stmt).all()
@@ -199,20 +200,24 @@ def print_formatted_orm_results() -> None:
         print(f"Fall 2025 acceptance percentage: {q5:.2f}%")
 
         q8 = orm_question_8(session)
-        print("\n[Question 8] Fall 2026 Accepted PhD CS (Georgetown, MIT, Stanford, CMU - Original Fields - ORM):")
+        print("\n[Question 8] Fall 2026 Accepted PhD CS (Top 4 - ORM):")
         print(f"Applicant count: {q8}")
 
         q8_c, q9_c, diff = orm_question_9(session)
         diff_str = f"+{diff}" if diff > 0 else str(diff)
-        print("\n[Question 9] Fall 2026 Accepted PhD CS (LLM Standardized Fields vs Original - ORM):")
+        print("\n[Question 9] Fall 2026 Accepted PhD CS (LLM Standardized - ORM):")
         print(f"Original-field count: {q8_c}")
         print(f"LLM-field count: {q9_c}")
         print(f"Difference: {diff_str}")
 
         q10 = orm_question_10(session)
-        print("\n[Question 10 - Original Question 1] Top 5 Universities by CS Applicant Volume & Acceptance Rate (ORM):")
+        print("\n[Question 10 - Original Question 1] Top 5 Universities by CS Volume (ORM):")
         for r in q10:
-            print(f"  - {r['university']}: {r['total_applicants']} applicants | {r['accepted_count']} accepted ({r['acceptance_rate_pct']}%)")
+            uni = r['university']
+            tot = r['total_applicants']
+            acc = r['accepted_count']
+            pct = r['acceptance_rate_pct']
+            print(f"  - {uni}: {tot} applicants | {acc} accepted ({pct}%)")
 
         print("\n" + "=" * 70)
     finally:
