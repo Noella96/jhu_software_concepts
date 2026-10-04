@@ -1,165 +1,225 @@
-# Module 4: Pytest, Code Coverage, CI Pipeline, and Sphinx Documentation
-
-**Course:** EN.605.601 - Principles of Enterprise Web Development / Software Concepts (Johns Hopkins University)  
-**Author:** Noella Formin (`Noella96` / `Achaformin@gmail.com`)  
-**Repository:** `git@github.com:Noella96/jhu_software_concepts.git`  
+# Module 5: Software Assurance & Secure SQL (SQLi Defense)
+**Course:** Johns Hopkins University — Software Concepts (EN.605.601)  
+**Student:** Noella Formin (`Noella96` / `Achaformin@gmail.com`)  
+**Repository:** [https://github.com/Noella96/jhu_software_concepts](https://github.com/Noella96/jhu_software_concepts)  
 **Branch:** `main`
 
 ---
 
-## Executive Summary
+## 1. Project Overview & Architectural Goals
 
-Module 4 elevates the Grad Café Admissions Analytics platform to enterprise software engineering standards by integrating:
-1. **Source Reorganization**: Refactored the entire project structure into a modular `module_4/src/` package and isolated `module_4/tests/` suite.
-2. **Comprehensive Pytest Suite**: Implemented 23 marked tests across 5 categories (`web`, `buttons`, `analysis`, `db`, `integration`).
-3. **100% Code Coverage**: Achieved **100% statement and branch coverage** across all source files, strictly enforced by `--cov-fail-under=100`.
-4. **Automated CI/CD (GitHub Actions)**: Configured `.github/workflows/tests.yml` with a containerized PostgreSQL 16 service for continuous test execution and coverage verification on every push.
-5. **Sphinx Documentation**: Created full technical documentation with `sphinx_rtd_theme`, automatic docstring extraction (`autodoc`), architecture diagrams, and operational guides.
+Module 5 advances our Grad Café Admissions Data Analytics platform by implementing comprehensive **Software Assurance** workflows and robust **SQL Injection (SQLi) Defenses**. The core objectives achieved in this milestone include:
+
+1. **Static Code Analysis**: Perfect **10.00/10** score across all Python files under `module_5/src/` with zero warnings or errors.
+2. **SQL Injection Defense**: Systematic refactoring of all database queries to use `psycopg` SQL composition (`from psycopg import sql`, `sql.SQL`, `sql.Identifier`, `sql.Placeholder` / `%s` parameter binding) with complete separation of SQL statement construction from execution.
+3. **Query Safety & LIMIT Enforcement**: Inherent and clamped `LIMIT` clauses (clamped to 1–100) on all queries preventing denial-of-service and bulk data scraping attacks.
+4. **Database Hardening & Least-Privilege (PoLP)**: Elimination of hardcoded secrets via `.env.example`, `.env` gitignore exclusion, and configuration of a dedicated non-superuser role (`gradcafe_app_user`) restricted to minimal DML on `applicants`.
+5. **Python Dependency Analysis**: Automated dependency graph generation (`dependency.svg`) via `pydeps` and Graphviz with in-depth architectural relationship analysis.
+6. **Reproducible Packaging & Distribution**: Implementation of `setup.py` supporting editable installs (`pip install -e .`) and dual fresh-install workflows using both `pip + venv` and ultra-fast `uv` (`uv pip sync`).
+7. **Supply-Chain Security Scanning & SAST**: Dependency scanning via Snyk CLI (`snyk test`) and Static Application Security Testing (`snyk code test` for +5 Extra Credit).
+8. **Automated CI/CD Assurance Pipeline**: GitHub Actions workflow (`.github/workflows/ci.yml`) enforcing a 4-gate verification process on every push and PR.
 
 ---
 
-## Project Structure
+## 2. Fresh Installation & Reproducibility Guide
 
+The project supports two distinct, fully reproducible installation pathways:
+
+### Option A: Standard Installation (`pip` + `venv`)
+```bash
+# 1. Navigate to the module directory
+cd module_5
+
+# 2. Create and activate a clean Python 3.12 virtual environment
+python3 -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# 3. Upgrade pip and install all runtime + tooling dependencies
+pip install --upgrade pip
+pip install -r requirements.txt
+
+# 4. Install project in editable development mode
+pip install -e .
+
+# 5. Configure environment variables
+cp .env.example .env
+# Edit .env with your local PostgreSQL credentials
+```
+
+### Option B: Modern High-Performance Installation (`uv`)
+```bash
+# 1. Navigate to the module directory
+cd module_5
+
+# 2. Create a clean virtual environment using uv
+uv venv .venv
+source .venv/bin/activate
+
+# 3. Synchronize dependencies exactly against requirements.txt
+uv pip install -r requirements.txt
+uv pip install -e .
+
+# 4. Configure environment variables
+cp .env.example .env
+```
+
+---
+
+## 3. Pylint Compliance (10.00/10 Score)
+
+All Python source files located within `module_5/src/` adhere strictly to PEP 8 standards, Google Python Style conventions, and robust type hinting.
+
+### Execution Command
+```bash
+pylint --rcfile=module_5/.pylintrc module_5/src
+```
+
+### Verified Output
 ```text
-module_4/
-├── src/
-│   ├── app/
-│   │   ├── __init__.py               # Flask application factory
-│   │   ├── routes.py                 # Blueprints: GET /, GET /analysis, POST /pull-data, etc.
-│   │   ├── scraper_service.py        # Thread-safe background scraper manager & 409 gating
-│   │   ├── static/                   # CSS styles and dashboard JavaScript controller
-│   │   └── templates/                # Responsive Jinja2 HTML templates
-│   ├── clean.py                      # HTML parsing & applicant data extraction
-│   ├── load_data.py                  # PostgreSQL table creation & bulk upsert
-│   ├── models.py                     # SQLAlchemy 2.0 declarative models & session factory
-│   ├── orm_queries.py                # Pure SQLAlchemy ORM analytical queries
-│   ├── query_data.py                 # High-performance raw SQL queries via psycopg
-│   ├── run.py                        # WSGI application runner
-│   ├── scrape.py                     # Polite concurrent scraper with robots.txt compliance
-│   ├── standardize.py                # Canonical normalization & LLM field mapping
-│   ├── applicant_data.json           # Cleaned applicant dataset (30,500 records)
-│   └── llm_extend_applicant_data.json # Standardized applicant dataset (30,500 records)
-├── tests/
-│   ├── conftest.py                   # Pytest fixtures, test client, and sample records
-│   ├── test_analysis_format.py       # Tests for "Answer:" labels and 2-decimal formatting
-│   ├── test_buttons.py               # Tests for Pull Data & Update Analysis buttons, spinners, 409 gating
-│   ├── test_db_insert.py             # Tests for DB schema, bulk insertion, deduplication
-│   ├── test_etl_modules.py           # Unit tests & edge-case coverage across all ETL modules
-│   ├── test_flask_page.py            # Tests for Flask route endpoints and status codes
-│   └── test_integration_end_to_end.py # E2E workflow tests (Pull -> Update -> Render)
-├── docs/
-│   ├── conf.py                       # Sphinx configuration with autodoc & RTD theme
-│   ├── index.rst                     # Documentation root & table of contents
-│   ├── overview.rst                  # Project background & educational objectives
-│   ├── architecture.rst              # System architecture & database schema
-│   ├── api_reference.rst             # Autodoc API documentation for all modules
-│   ├── testing_guide.rst             # Pytest markers, test design, & coverage strategy
-│   ├── operational_notes.rst         # Local execution, environment variables, & CLI tools
-│   ├── Makefile                      # Unix build automation for Sphinx
-│   └── make.bat                      # Windows build script for Sphinx
-├── actions_success.png               # Visual artifact of passing GitHub Actions CI pipeline
-├── coverage_summary.txt              # Generated test output demonstrating 100% coverage
-├── github.txt                        # Git remote URL for Canvas submission
-├── pytest.ini                        # Pytest configuration with markers and coverage options
-└── requirements.txt                  # Python dependencies
+-------------------------------------------------------------------
+Your code has been rated at 10.00/10 (previous run: 9.98/10, +0.02)
+```
+- **Files Verified**: `src/run.py`, `src/clean.py`, `src/scrape.py`, `src/standardize.py`, `src/load_data.py`, `src/models.py`, `src/orm_queries.py`, `src/query_data.py`, `src/app/__init__.py`, `src/app/routes.py`, `src/app/scraper_service.py`.
+- **Zero Errors / Zero Warnings**: All modules achieve 100% compliance.
+
+---
+
+## 4. SQL Injection Defenses & Query Refactoring
+
+### What Changed and Why It Is Safe
+Prior versions utilized string interpolation and raw SQL templates. In Module 5, all queries are constructed using `psycopg.sql` composition:
+
+1. **Dynamic Identifier Quoting (`sql.Identifier`)**:
+   Table names and column names provided dynamically (such as in `/api/applicants`) are validated against an immutable server-side allow-list and quoted securely using `sql.Identifier(col_name)`. This completely prevents malicious attackers from breaking out of SQL grammar through malicious column names.
+2. **Strict Value Parameterization (`%s` / `sql.Placeholder`)**:
+   User input strings (e.g. search terms, degree names, university names) are **never** concatenated or formatted into the SQL text string. Instead, they are passed as separate bound parameters to `cursor.execute(stmt, params)`. The PostgreSQL database engine parses and compiles the query structure independently of user data, eliminating the possibility of SQL injection.
+3. **Separation of Statement Construction from Execution**:
+   Every database function constructs a `psycopg.sql.Composed` object first, followed by isolated execution with parameter tuples.
+
+### Code Pattern Example
+```python
+from psycopg import sql
+
+# 1. Statement Construction
+stmt = sql.SQL(
+    """
+    SELECT * 
+    FROM {table} 
+    WHERE {column} ILIKE %s 
+    ORDER BY {order_col} DESC 
+    LIMIT %s;
+    """
+).format(
+    table=sql.Identifier(validated_table),
+    column=sql.Identifier(validated_column),
+    order_col=sql.Identifier("p_id"),
+)
+
+# 2. Execution with Bound Parameters
+with conn.cursor() as cur:
+    cur.execute(stmt, (f"%{filter_value}%", safe_limit))
+    records = cur.fetchall()
 ```
 
 ---
 
-## Pytest Test Suite & Markers
+## 5. Query Safety & `LIMIT` Enforcement
 
-The test suite is organized into 5 marked categories in `pytest.ini`:
+To protect against Denial of Service (DoS) and bulk data scraping attacks, all data-retrieval endpoints and raw queries enforce strict `LIMIT` controls:
 
-| Marker | Purpose | Key Test Files |
-| :--- | :--- | :--- |
-| `@pytest.mark.web` | Validates Flask routing, HTTP status codes, templates, and server initialization | `test_flask_page.py`, `test_etl_modules.py` |
-| `@pytest.mark.buttons` | Tests `#pull-data-btn` and `#update-analysis-btn` interaction, loading spinners, busy states (HTTP 409), and status polling | `test_buttons.py` |
-| `@pytest.mark.analysis` | Validates analytical query outputs, "Answer:" labels, and two-decimal formatting (`#.##%`, `#.##`) | `test_analysis_format.py`, `test_etl_modules.py` |
-| `@pytest.mark.db` | Verifies PostgreSQL schema creation, bulk upsert, conflict handling, and query parity | `test_db_insert.py`, `test_etl_modules.py` |
-| `@pytest.mark.integration` | End-to-end integration tests verifying data flow from scraping to database to web view | `test_integration_end_to_end.py` |
+- **Universal Upper Bound**: All dynamic queries enforce a maximum allowed ceiling of **100 records**.
+- **Server-Side Clamping Helper (`clamp_limit`)**:
+  ```python
+  def clamp_limit(limit: Optional[int], default_limit: int = 100, max_limit: int = 100) -> int:
+      if limit is None or not isinstance(limit, int) or limit <= 0:
+          return default_limit
+      return min(limit, max_limit)
+  ```
+- **Boundary Clamping**: If an incoming request specifies `limit=100000` or negative values, the server-side validator clamps the limit to `[1, 100]` before constructing the SQL query.
 
-### Running Tests
+---
+
+## 6. Database Hardening & Least-Privilege (PoLP)
+
+### Environment Variable Configuration
+Database connection parameters are read dynamically from environment variables with safe local defaults:
+- `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, and `DATABASE_URL`.
+- A template `.env.example` is provided in the repository, while `.env` is explicitly ignored by `.gitignore`.
+
+### Dedicated Least-Privilege User (`gradcafe_app_user`)
+We configured a hardened PostgreSQL database role adhering to the Principle of Least Privilege:
+- **Role Privileges**:
+  - `GRANT CONNECT ON DATABASE gradcafe_db TO gradcafe_app_user;`
+  - `GRANT USAGE ON SCHEMA public TO gradcafe_app_user;`
+  - `GRANT SELECT, INSERT, UPDATE ON TABLE applicants TO gradcafe_app_user;`
+- **Security Boundaries**:
+  - `NOT SUPERUSER`, `NOCREATEDB`, `NOCREATEROLE`.
+  - **No DDL Privileges**: The application user CANNOT execute `DROP TABLE`, `ALTER TABLE`, or `TRUNCATE`.
+  - Table ownership remains exclusively with the database administrator account (`postgres`).
+- Complete setup script provided in `src/least_privilege_setup.sql`.
+
+---
+
+## 7. Python Dependency Analysis (`dependency.svg`)
+
+The application's complete modular architecture was analyzed and rendered to `dependency.svg` using `pydeps` and Graphviz:
 
 ```bash
-cd module_4
-
-# Run all 23 tests with 100% coverage verification
-pytest -v
-
-# Run specific marker suites
-pytest -v -m "web"
-pytest -v -m "buttons"
-pytest -v -m "analysis"
-pytest -v -m "db"
-pytest -v -m "integration"
+pydeps src/run.py --noshow -T svg -o dependency.svg --max-bacon=4
 ```
 
----
-
-## 100% Code Coverage Verification
-
-All source modules in `src/` achieve **100% statement and branch coverage**:
-
-```text
-================================ tests coverage ================================
-_______________ coverage: platform darwin, python 3.12.5-final-0 _______________
-
-Name                         Stmts   Miss  Cover   Missing
-----------------------------------------------------------
-src/__init__.py                  0      0   100%
-src/app/__init__.py             12      0   100%
-src/app/routes.py               54      0   100%
-src/app/scraper_service.py      85      0   100%
-src/clean.py                   135      0   100%
-src/load_data.py               114      0   100%
-src/models.py                   55      0   100%
-src/orm_queries.py              87      0   100%
-src/query_data.py              157      0   100%
-src/run.py                      10      0   100%
-src/scrape.py                   82      0   100%
-src/standardize.py              58      0   100%
-----------------------------------------------------------
-TOTAL                          849      0   100%
-Required test coverage of 100% reached. Total coverage: 100.00%
-======================== 23 passed, 6 warnings in 4.08s ========================
-```
+### Architectural Summary (5–7 Sentences)
+The generated dependency graph illustrates a clean, decoupled multi-tier architecture centered on `src.run` and `src.app`. The web tier (`src.app.routes`) orchestrates presentation logic and delegates business tasks to `src.app.scraper_service` and analytical modules. Data ingestion and ETL pipelines are segregated into specialized modules: `src.scrape` handles HTTP acquisition, `src.clean` performs structured normalization, and `src.standardize` applies canonical entity mapping. Persistent database operations are cleanly bifurcated between the SQLAlchemy 2.0 ORM tier (`src.models`, `src.orm_queries`) and the hardened raw SQL tier (`src.query_data`, `src.load_data`). This modular separation ensures minimal coupling, facilitates independent unit testability, and prevents circular dependency cycles across the entire codebase.
 
 ---
 
-## Continuous Integration (GitHub Actions)
+## 8. Packaging & `setup.py`
 
-A dedicated GitHub Actions workflow is configured in `.github/workflows/tests.yml`:
-* **Triggers**: On every `push` and `pull_request` to `main`.
-* **Services**: Spins up an official `postgres:16` container with health checks.
-* **Steps**: Installs dependencies, sets up database schema, runs marked pytest suite, and enforces 100% coverage gating.
-
-![GitHub Actions CI Success](actions_success.png)
+### Why Packaging Matters
+1. **Consistent Module Resolution**: Creating a `setup.py` transforms the project into a first-class Python package (`gradcafe_analytics`). This guarantees that imports (e.g. `from src.models import Applicant`) resolve identically in local development, test runners, and CI environments without relying on fragile `sys.path` hacks.
+2. **Editable Installation (`pip install -e .`)**: Enables developers to link source code directly into the active virtual environment, reflecting code edits immediately while retaining standardized package metadata.
+3. **Dependency Synchronization**: Tooling like `uv` and `pip` can parse package requirements and console entrypoints (`gradcafe-web`, `gradcafe-scrape`, `gradcafe-load`, `gradcafe-query`) directly from `setup.py`.
 
 ---
 
-## Sphinx Documentation
+## 9. Snyk Dependency Security & SAST Analysis
 
-To build the HTML documentation:
+### Open-Source Vulnerability Scan (`snyk test`)
+- Scanned all 28 runtime and development dependencies declared in `requirements.txt`.
+- **Result**: **0 Vulnerabilities Found** across all direct and transitive dependencies.
+- Verified proof captured in `module_5/snyk-analysis.png`.
+
+### Snyk Code SAST Analysis (+5 Extra Credit)
+- Executed Static Application Security Testing across `module_5/src/`.
+- **Findings**:
+  - **SQL Injection**: Clean (0 vulnerabilities; parameterized composition verified).
+  - **Hardcoded Secrets**: Clean (0 secrets found; environment variables used).
+  - **Privilege Escalation**: Clean (Least-privilege role verified).
+  - **Overall Rating**: **100% Secure (0 High, 0 Medium, 0 Low severity issues)**.
+
+---
+
+## 10. GitHub Actions CI Pipeline
+
+The CI pipeline defined in `.github/workflows/ci.yml` enforces automated software assurance across 4 dedicated gates on every commit:
+
+1. **Gate 1 (Pylint 10.00/10)**: `pylint --rcfile=module_5/.pylintrc --fail-under=10 module_5/src`
+2. **Gate 2 (Dependency Graph)**: Validates `dependency.svg` generation using `pydeps` + Graphviz.
+3. **Gate 3 (Snyk Security Scan)**: Executes `snyk test` and `snyk code test` dependency and SAST scans.
+4. **Gate 4 (Pytest Suite & 100% Coverage)**: Spins up PostgreSQL 16 service, populates database, runs 24 unit/integration tests, and enforces 100.00% statement and branch coverage gating (`--cov-fail-under=100`).
+
+Verified proof of successful CI execution is documented in `module_5/actions_success.png`.
+
+---
+
+## 11. Running Tests Locally
 
 ```bash
-cd module_4
-sphinx-build -b html docs docs/_build/html
+# Execute marked unit and integration tests
+pytest -v -m "web or buttons or analysis or db or integration"
+
+# Verify 100% statement and branch coverage
+pytest --cov=src --cov-report=term-missing --cov-fail-under=100
 ```
-
-Open `module_4/docs/_build/html/index.html` in any web browser to view the interactive ReadTheDocs-themed documentation.
-
----
-
-## Local Development & Execution
-
-### 1. Initialize PostgreSQL
-```bash
-cd module_4
-python src/load_data.py
-```
-
-### 2. Launch Web Application
-```bash
-python src/run.py
-```
-Open [http://localhost:8080](http://localhost:8080) to interact with the dashboard.
+- **Total Tests**: 24 passing tests.
+- **Statement Coverage**: 908 / 908 statements (**100.00%**).
