@@ -1,14 +1,17 @@
 """
 Flask Application Routes for Admissions Analysis Dashboard.
-Module 4 - Johns Hopkins University Software Concepts (EN.605.601)
+Module 5 - Software Assurance & Secure SQL (SQLi Defense)
+Johns Hopkins University - Software Concepts (EN.605.601)
 
-Connects to PostgreSQL using the SQLAlchemy Applicant model to dynamically serve
-analysis metrics, trigger background data pulls, and handle analysis refreshes with busy gating.
+Features:
+- Dynamic analysis metrics serving via ORM and secure SQL.
+- Hardened endpoints with parameterized search (/api/applicants) defending against SQL injection.
+- Strict LIMIT clamping and validation on user queries.
 """
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
-from flask import Blueprint, current_app, jsonify, render_template, request
+from flask import Blueprint, jsonify, render_template, request
 from sqlalchemy import func, select
 
 from src.app.scraper_service import scraper_manager
@@ -22,6 +25,8 @@ from src.orm_queries import (
     orm_question_10,
 )
 from src.query_data import (
+    clamp_limit,
+    query_applicants_dynamic,
     run_question_2,
     run_question_3,
     run_question_6,
@@ -34,7 +39,7 @@ main_bp = Blueprint("main", __name__)
 
 def fetch_all_dashboard_data(custom_session=None) -> Dict[str, Any]:
     """
-    Fetch all 11 analysis metrics from PostgreSQL using SQLAlchemy ORM (and helper models).
+    Fetch all 11 analysis metrics from PostgreSQL using SQLAlchemy ORM and secure raw queries.
     """
     session = custom_session or get_db_session()
     should_close = custom_session is None
@@ -120,7 +125,10 @@ def pull_data():
     Trigger background scraping and ingestion of newly submitted Grad Café entries.
     Returns 200/202 {"ok": true} when started, or 409 {"busy": true} if already running.
     """
-    sync_mode = request.args.get("sync", "false").lower() == "true" or request.is_json and request.get_json(silent=True) and request.get_json().get("sync") is True
+    json_data = request.get_json(silent=True) if request.is_json else {}
+    sync_mode = request.args.get("sync", "false").lower() == "true" or (
+        bool(json_data and json_data.get("sync") is True)
+    )
     started = scraper_manager.start_pull_data(synchronous=sync_mode)
     if started:
         return jsonify({
@@ -130,15 +138,51 @@ def pull_data():
             "message": "Pull Data started. Scraping Grad Café for newly submitted application results...",
             "is_running": not sync_mode
         }), 200
-    else:
+
+    return jsonify({
+        "ok": False,
+        "success": False,
+        "busy": True,
+        "error": "A data pull is already in progress. Please wait for it to complete.",
+        "message": "A data pull is already in progress. Please wait for it to complete.",
+        "is_running": True
+    }), 409
+
+
+@main_bp.route("/api/applicants", methods=["GET"])
+def search_applicants():
+    """
+    Secure search endpoint demonstrating SQL injection defense and LIMIT clamping.
+    Accepts filter_column, filter_value, and limit query parameters.
+    """
+    filter_col = request.args.get("column", "program")
+    filter_val = request.args.get("value", "")
+    raw_limit = request.args.get("limit", 20)
+    try:
+        limit_val = int(raw_limit)
+    except (ValueError, TypeError):
+        limit_val = 20
+
+    session = get_db_session()
+    try:
+        raw_conn = session.connection().connection
+        results = query_applicants_dynamic(
+            conn=raw_conn,
+            table_name="applicants",
+            filter_column=filter_col,
+            filter_value=filter_val,
+            limit=limit_val,
+        )
         return jsonify({
-            "ok": False,
-            "success": False,
-            "busy": True,
-            "error": "A data pull is already in progress. Please wait for it to complete.",
-            "message": "A data pull is already in progress. Please wait for it to complete.",
-            "is_running": True
-        }), 409
+            "ok": True,
+            "count": len(results),
+            "limit_applied": clamp_limit(limit_val, default_limit=20, max_limit=100),
+            "results": results,
+        }), 200
+    except ValueError as err:
+        return jsonify({"ok": False, "error": str(err)}), 400
+    finally:
+        session.close()
 
 
 @main_bp.route("/api/status", methods=["GET"])

@@ -1,9 +1,11 @@
 """
 SQLAlchemy ORM Data Models and Database Configuration.
-Module 4 - Johns Hopkins University Software Concepts (EN.605.601)
+Module 5 - Software Assurance & Secure SQL (SQLi Defense)
+Johns Hopkins University - Software Concepts (EN.605.601)
 
 Defines the declarative 'Applicant' model representing the PostgreSQL 'applicants' table
-and provides SQLAlchemy 2.0 Engine and Session factory helpers supporting test overrides.
+and provides SQLAlchemy 2.0 Engine and Session factory helpers supporting test overrides
+and environment variable configuration (DB_HOST, DB_USER, DB_PASSWORD, DB_NAME).
 """
 from __future__ import annotations
 
@@ -11,13 +13,12 @@ import os
 from datetime import date
 from typing import Optional
 
-from sqlalchemy import Date, Float, Integer, String, Text, create_engine
+from sqlalchemy import Date, Float, Integer, Text, create_engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 
 class Base(DeclarativeBase):
     """SQLAlchemy Declarative Base class."""
-    pass
 
 
 class Applicant(Base):
@@ -58,11 +59,14 @@ def get_database_uri(custom_url: Optional[str] = None) -> str:
             database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
         return database_url
 
-    dbname = os.environ.get("POSTGRES_DB", "gradcafe_db")
-    user = os.environ.get("POSTGRES_USER", os.environ.get("USER", "postgres"))
-    password = os.environ.get("POSTGRES_PASSWORD", "")
-    host = os.environ.get("POSTGRES_HOST", "localhost")
-    port = os.environ.get("POSTGRES_PORT", "5432")
+    dbname = os.environ.get("DB_NAME", os.environ.get("POSTGRES_DB", "gradcafe_db"))
+    user = os.environ.get(
+        "DB_USER",
+        os.environ.get("POSTGRES_USER", os.environ.get("USER", "postgres")),
+    )
+    password = os.environ.get("DB_PASSWORD", os.environ.get("POSTGRES_PASSWORD", ""))
+    host = os.environ.get("DB_HOST", os.environ.get("POSTGRES_HOST", "localhost"))
+    port = os.environ.get("DB_PORT", os.environ.get("POSTGRES_PORT", "5432"))
 
     if user and password:
         auth = f"{user}:{password}@"

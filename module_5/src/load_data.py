@@ -1,20 +1,24 @@
 """
-Data Loader Module for Grad Café Admissions Data.
-Module 4 - Johns Hopkins University Software Concepts (EN.605.601)
+Database Loader and ETL Ingestion Module for Grad Café Admissions Data.
+Module 5 - Software Assurance & Secure SQL (SQLi Defense)
+Johns Hopkins University - Software Concepts (EN.605.601)
 
-Connects to PostgreSQL using psycopg, creates the required 'applicants' table,
-and idempotently loads cleaned applicant data handling missing values and data type conversions.
+Features:
+- SQL injection defense using psycopg SQL composition for table creation, inserts, and counts.
+- Least-privilege environment configuration support (DB_HOST, DB_USER, DB_PASSWORD, DB_NAME).
+- Robust type parsing and UPSERT idempotency.
 """
 from __future__ import annotations
 
+import datetime
+from datetime import datetime as dt
 import json
 import os
 import re
-from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
 import psycopg
-from psycopg.rows import dict_row
+from psycopg import sql
 
 
 def get_db_connection_params(custom_conninfo: Optional[str] = None) -> Dict[str, Any]:
@@ -26,11 +30,14 @@ def get_db_connection_params(custom_conninfo: Optional[str] = None) -> Dict[str,
     if database_url:
         return {"conninfo": database_url}
 
-    dbname = os.environ.get("POSTGRES_DB", "gradcafe_db")
-    user = os.environ.get("POSTGRES_USER", os.environ.get("USER", "postgres"))
-    password = os.environ.get("POSTGRES_PASSWORD", "")
-    host = os.environ.get("POSTGRES_HOST", "localhost")
-    port = int(os.environ.get("POSTGRES_PORT", "5432"))
+    dbname = os.environ.get("DB_NAME", os.environ.get("POSTGRES_DB", "gradcafe_db"))
+    user = os.environ.get(
+        "DB_USER",
+        os.environ.get("POSTGRES_USER", os.environ.get("USER", "postgres")),
+    )
+    password = os.environ.get("DB_PASSWORD", os.environ.get("POSTGRES_PASSWORD", ""))
+    host = os.environ.get("DB_HOST", os.environ.get("POSTGRES_HOST", "localhost"))
+    port = int(os.environ.get("DB_PORT", os.environ.get("POSTGRES_PORT", "5432")))
 
     conn_kwargs: Dict[str, Any] = {
         "dbname": dbname,
@@ -45,7 +52,7 @@ def get_db_connection_params(custom_conninfo: Optional[str] = None) -> Dict[str,
     return conn_kwargs
 
 
-def get_db_connection(custom_conninfo: Optional[str] = None):
+def get_db_connection(custom_conninfo: Optional[str] = None) -> psycopg.Connection:
     """
     Establish a connection to the PostgreSQL database.
     """
@@ -55,31 +62,34 @@ def get_db_connection(custom_conninfo: Optional[str] = None):
     return psycopg.connect(**params)
 
 
-def create_applicants_table(conn: psycopg.Connection) -> None:
+def create_applicants_table(conn: psycopg.Connection, table_name: str = "applicants") -> None:
     """
-    Create the 'applicants' table if it does not already exist.
+    Create the 'applicants' table if it does not already exist using safe SQL composition.
     """
-    create_table_sql = """
-    CREATE TABLE IF NOT EXISTS applicants (
-        p_id INTEGER PRIMARY KEY,
-        program TEXT,
-        comments TEXT,
-        date_added DATE,
-        url TEXT,
-        status TEXT,
-        term TEXT,
-        us_or_international TEXT,
-        gpa FLOAT,
-        gre FLOAT,
-        gre_v FLOAT,
-        gre_aw FLOAT,
-        degree TEXT,
-        llm_generated_program TEXT,
-        llm_generated_university TEXT
-    );
-    """
+    stmt = sql.SQL(
+        """
+        CREATE TABLE IF NOT EXISTS {table} (
+            p_id INTEGER PRIMARY KEY,
+            program TEXT,
+            comments TEXT,
+            date_added DATE,
+            url TEXT,
+            status TEXT,
+            term TEXT,
+            us_or_international TEXT,
+            gpa FLOAT,
+            gre FLOAT,
+            gre_v FLOAT,
+            gre_aw FLOAT,
+            degree TEXT,
+            llm_generated_program TEXT,
+            llm_generated_university TEXT
+        );
+        """
+    ).format(table=sql.Identifier(table_name))
+
     with conn.cursor() as cur:
-        cur.execute(create_table_sql)
+        cur.execute(stmt)
     conn.commit()
 
 
@@ -91,7 +101,6 @@ def parse_p_id(url: str, default_id: int) -> int:
         match = re.search(r"/result/(\d+)", str(url))
         if match:
             return int(match.group(1))
-        # Support pure integer strings or digits
         digit_match = re.search(r"(\d+)", str(url))
         if digit_match:
             return int(digit_match.group(1))
@@ -101,14 +110,14 @@ def parse_p_id(url: str, default_id: int) -> int:
 def parse_date(date_str: Optional[str]) -> Optional[datetime.date]:
     """
     Parse date string into a Python date object.
-    Supports formats like 'Added on March 31, 2024', 'March 31, 2024', '2024-03-31'.
+    Supports formats like 'Added on March 31, 2026', 'March 31, 2026', '2026-03-31'.
     """
     if not date_str:
         return None
     cleaned = re.sub(r"^Added on\s*", "", str(date_str), flags=re.IGNORECASE).strip()
     for fmt in ("%B %d, %Y", "%b %d, %Y", "%Y-%m-%d", "%m/%d/%Y"):
         try:
-            return datetime.strptime(cleaned, fmt).date()
+            return dt.strptime(cleaned, fmt).date()
         except ValueError:
             continue
     return None
@@ -141,36 +150,42 @@ def parse_text(val: Any) -> Optional[str]:
     return cleaned if cleaned else None
 
 
-def load_data_from_records(records: List[Dict[str, Any]], conn: psycopg.Connection) -> int:
+def load_data_from_records(
+    records: List[Dict[str, Any]],
+    conn: psycopg.Connection,
+    table_name: str = "applicants",
+) -> int:
     """
-    Load a list of dictionary applicant records into PostgreSQL applicants table.
+    Load a list of applicant records into PostgreSQL applicants table using safe SQL composition.
     """
-    insert_sql = """
-    INSERT INTO applicants (
-        p_id, program, comments, date_added, url, status, term,
-        us_or_international, gpa, gre, gre_v, gre_aw, degree,
-        llm_generated_program, llm_generated_university
-    ) VALUES (
-        %(p_id)s, %(program)s, %(comments)s, %(date_added)s, %(url)s, %(status)s, %(term)s,
-        %(us_or_international)s, %(gpa)s, %(gre)s, %(gre_v)s, %(gre_aw)s, %(degree)s,
-        %(llm_generated_program)s, %(llm_generated_university)s
-    )
-    ON CONFLICT (p_id) DO UPDATE SET
-        program = EXCLUDED.program,
-        comments = EXCLUDED.comments,
-        date_added = EXCLUDED.date_added,
-        url = EXCLUDED.url,
-        status = EXCLUDED.status,
-        term = EXCLUDED.term,
-        us_or_international = EXCLUDED.us_or_international,
-        gpa = EXCLUDED.gpa,
-        gre = EXCLUDED.gre,
-        gre_v = EXCLUDED.gre_v,
-        gre_aw = EXCLUDED.gre_aw,
-        degree = EXCLUDED.degree,
-        llm_generated_program = EXCLUDED.llm_generated_program,
-        llm_generated_university = EXCLUDED.llm_generated_university;
-    """
+    stmt = sql.SQL(
+        """
+        INSERT INTO {table} (
+            p_id, program, comments, date_added, url, status, term,
+            us_or_international, gpa, gre, gre_v, gre_aw, degree,
+            llm_generated_program, llm_generated_university
+        ) VALUES (
+            %(p_id)s, %(program)s, %(comments)s, %(date_added)s, %(url)s, %(status)s, %(term)s,
+            %(us_or_international)s, %(gpa)s, %(gre)s, %(gre_v)s, %(gre_aw)s, %(degree)s,
+            %(llm_generated_program)s, %(llm_generated_university)s
+        )
+        ON CONFLICT (p_id) DO UPDATE SET
+            program = EXCLUDED.program,
+            comments = EXCLUDED.comments,
+            date_added = EXCLUDED.date_added,
+            url = EXCLUDED.url,
+            status = EXCLUDED.status,
+            term = EXCLUDED.term,
+            us_or_international = EXCLUDED.us_or_international,
+            gpa = EXCLUDED.gpa,
+            gre = EXCLUDED.gre,
+            gre_v = EXCLUDED.gre_v,
+            gre_aw = EXCLUDED.gre_aw,
+            degree = EXCLUDED.degree,
+            llm_generated_program = EXCLUDED.llm_generated_program,
+            llm_generated_university = EXCLUDED.llm_generated_university;
+        """
+    ).format(table=sql.Identifier(table_name))
 
     prepared_data: List[Dict[str, Any]] = []
     for idx, r in enumerate(records):
@@ -189,19 +204,25 @@ def load_data_from_records(records: List[Dict[str, Any]], conn: psycopg.Connecti
             "url": parse_text(url),
             "status": parse_text(r.get("status")),
             "term": parse_text(r.get("term")),
-            "us_or_international": parse_text(r.get("us_or_international") or r.get("US/International")),
+            "us_or_international": parse_text(
+                r.get("us_or_international") or r.get("US/International")
+            ),
             "gpa": parse_numeric(r.get("gpa") or r.get("GPA")),
             "gre": parse_numeric(r.get("gre") or r.get("GRE")),
             "gre_v": parse_numeric(r.get("gre_v") or r.get("GRE V")),
             "gre_aw": parse_numeric(r.get("gre_aw") or r.get("GRE AW")),
             "degree": parse_text(r.get("degree") or r.get("Degree")),
-            "llm_generated_program": parse_text(r.get("llm_generated_program") or r.get("llm-generated-program")),
-            "llm_generated_university": parse_text(r.get("llm_generated_university") or r.get("llm-generated-university")),
+            "llm_generated_program": parse_text(
+                r.get("llm_generated_program") or r.get("llm-generated-program")
+            ),
+            "llm_generated_university": parse_text(
+                r.get("llm_generated_university") or r.get("llm-generated-university")
+            ),
         }
         prepared_data.append(row)
 
     with conn.cursor() as cur:
-        cur.executemany(insert_sql, prepared_data)
+        cur.executemany(stmt, prepared_data)
     conn.commit()
 
     return len(prepared_data)
@@ -222,7 +243,7 @@ def load_data_from_json(json_path: str, conn: psycopg.Connection) -> Tuple[int, 
     return inserted, len(records)
 
 
-def main():
+def main() -> None:
     """
     Main data loading routine.
     """
@@ -232,22 +253,24 @@ def main():
 
     data_file = primary_json if os.path.exists(primary_json) else fallback_json
 
-    print(f"[+] Connecting to PostgreSQL database...")
+    print("[+] Connecting to PostgreSQL database...")
     try:
         conn = get_db_connection()
-    except Exception as e:
-        print(f"[-] Database connection failed: {e}")
+    except Exception as err:  # pylint: disable=broad-exception-caught
+        print(f"[-] Database connection failed: {err}")
         return
 
-    print(f"[+] Ensuring 'applicants' table exists...")
+    print("[+] Ensuring 'applicants' table exists...")
     create_applicants_table(conn)
 
     print(f"[+] Loading records from {os.path.basename(data_file)}...")
-    loaded, total = load_data_from_json(data_file, conn)
+    loaded, _ = load_data_from_json(data_file, conn)
 
+    count_stmt = sql.SQL("SELECT COUNT(*) FROM {table};").format(table=sql.Identifier("applicants"))
     with conn.cursor() as cur:
-        cur.execute("SELECT COUNT(*) FROM applicants;")
-        count = cur.fetchone()[0]
+        cur.execute(count_stmt)
+        row = cur.fetchone()
+        count = row[0] if row else 0
 
     conn.close()
     print(f"[+] Successfully loaded {loaded} records into PostgreSQL 'applicants' table.")
