@@ -1,0 +1,25 @@
+# Module 5 Dependencies - Software Assurance & Secure SQL (SQLi Defense)
+# Johns Hopkins University: Software Concepts (EN.605.601)
+
+# Core Web & ORM Frameworks
+Flask>=3.0.0
+SQLAlchemy>=2.0.0
+psycopg[binary]>=3.1.0
+psycopg2-binary>=2.9.0
+python-dotenv>=1.0.0
+
+# HTML Scraping & Web Parsing
+beautifulsoup4>=4.12.0
+requests>=2.31.0
+
+# Pytest & Coverage Frameworks
+pytest>=8.0.0
+pytest-cov>=5.0.0
+
+# Static Analysis & Dependency Visualization Tooling
+pylint>=3.0.0
+pydeps>=1.12.0
+
+# PDF Report Generation & Imaging
+reportlab>=4.0.0
+pillow>=10.0.0

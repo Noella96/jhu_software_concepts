@@ -1,0 +1,36 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.12.5, pytest-9.1.1, pluggy-1.6.0
+rootdir: /Users/sourav/Desktop/jhu_software_concepts/module_4
+configfile: pytest.ini
+testpaths: tests
+plugins: cov-7.1.0
+collecting ... collected 23 items
+
+tests/test_analysis_format.py ...                                        [ 13%]
+tests/test_buttons.py .....                                              [ 34%]
+tests/test_db_insert.py ...                                              [ 47%]
+tests/test_etl_modules.py .......                                        [ 78%]
+tests/test_flask_page.py ...                                             [ 91%]
+tests/test_integration_end_to_end.py ..                                  [100%]
+
+================================ tests coverage ================================
+_______________ coverage: platform darwin, python 3.12.5-final-0 _______________
+
+Name                         Stmts   Miss  Cover   Missing
+----------------------------------------------------------
+src/__init__.py                  0      0   100%
+src/app/__init__.py             12      0   100%
+src/app/routes.py               54      0   100%
+src/app/scraper_service.py      85      0   100%
+src/clean.py                   135      0   100%
+src/load_data.py               114      0   100%
+src/models.py                   55      0   100%
+src/orm_queries.py              87      0   100%
+src/query_data.py              157      0   100%
+src/run.py                      10      0   100%
+src/scrape.py                   82      0   100%
+src/standardize.py              58      0   100%
+----------------------------------------------------------
+TOTAL                          849      0   100%
+Required test coverage of 100% reached. Total coverage: 100.00%
+============================== 23 passed in 4.78s ==============================

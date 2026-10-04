@@ -28,8 +28,13 @@ input/
 .coverage.*
 .pytest_cache/
 
-# Sphinx build artifacts
-_build/
-docs/_build/
-module_4/docs/_build/
+# Environment variables and secrets
+.env
+.env.local
+*.env
+
+# Packaging & distribution build artifacts
+*.egg-info/
+dist/
+build/
 
