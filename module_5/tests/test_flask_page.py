@@ -68,3 +68,30 @@ def test_get_root_page_load(client):
     assert "data-testid=\"pull-data-btn\"" in html
     assert "data-testid=\"update-analysis-btn\"" in html
     assert "Answer:" in html
+
+
+@pytest.mark.web
+def test_search_applicants_endpoint_and_limit_enforcement(client):
+    """
+    Test secure /api/applicants search endpoint handling valid queries,
+    limit clamping, invalid limit strings, and unauthorized column rejection.
+    """
+    # 1. Valid search query
+    res = client.get("/api/applicants?column=program&value=Computer&limit=5")
+    assert res.status_code == 200
+    payload = res.get_json()
+    assert payload["ok"] is True
+    assert payload["limit_applied"] == 5
+    assert isinstance(payload["results"], list)
+
+    # 2. Invalid limit string fallback
+    res_inv_lim = client.get("/api/applicants?limit=notanumber")
+    assert res_inv_lim.status_code == 200
+    assert res_inv_lim.get_json()["limit_applied"] == 20
+
+    # 3. Unauthorized column rejected with 400 Bad Request
+    res_bad_col = client.get("/api/applicants?column=malicious_sql_injection")
+    assert res_bad_col.status_code == 400
+    assert res_bad_col.get_json()["ok"] is False
+    assert "Unauthorized" in res_bad_col.get_json()["error"]
+

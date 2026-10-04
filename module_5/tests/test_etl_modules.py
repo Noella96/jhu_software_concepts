@@ -574,3 +574,39 @@ def test_cli_runners_and_main_entrypoints(tmp_path):
     res_orm = execute_orm_queries(None)
     assert res_orm["q1"] >= 0
 
+    # 19. Test clamp_limit helper and boundary conditions
+    from src.query_data import clamp_limit, query_applicants_dynamic
+    assert clamp_limit(None) == 100
+    assert clamp_limit(-10) == 100
+    assert clamp_limit("invalid") == 100  # type: ignore[arg-type]
+    assert clamp_limit(25, default_limit=50, max_limit=100) == 25
+    assert clamp_limit(500, default_limit=50, max_limit=100) == 100
+
+    # 20. Test query_applicants_dynamic with valid inputs and SQL injection validation
+    conn_raw = get_raw_conn()
+    try:
+        dyn_results = query_applicants_dynamic(conn_raw, "applicants", "program", "Computer", limit=5)
+        assert isinstance(dyn_results, list)
+
+        with pytest.raises(ValueError, match="Unauthorized table"):
+            query_applicants_dynamic(conn_raw, "non_existent_table_drop", "program", "Computer")
+
+        with pytest.raises(ValueError, match="Unauthorized column"):
+            query_applicants_dynamic(conn_raw, "applicants", "malicious_col_or_injection", "Computer")
+    finally:
+        conn_raw.close()
+
+    # 21. Test run_question_3 fallback when fetchone returns None
+    from src.query_data import run_question_3 as rq3
+    mock_empty_c = mock.MagicMock()
+    mock_empty_cur = mock.MagicMock()
+    mock_empty_cur.fetchone.return_value = None
+    mock_empty_c.cursor.return_value.__enter__.return_value = mock_empty_cur
+    assert rq3(mock_empty_c) == (0.0, 0.0, 0.0, 0.0)
+
+    # 22. Test ScraperManager singleton re-instantiation
+    from src.app.scraper_service import ScraperManager
+    mgr_inst = ScraperManager()
+    assert mgr_inst is not None
+
+
