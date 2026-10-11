@@ -10,9 +10,9 @@ from typing import Any, Dict, Optional
 from flask import Flask
 
 try:
-    from app.routes import main_bp
-except ImportError:
     from src.web.app.routes import main_bp
+except ImportError:
+    from app.routes import main_bp
 
 
 def create_app(config: Optional[Dict[str, Any]] = None) -> Flask:

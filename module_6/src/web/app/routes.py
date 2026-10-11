@@ -17,26 +17,6 @@ from flask import Blueprint, jsonify, render_template, request
 from sqlalchemy import func, select
 
 try:
-    from models import Applicant, get_db_session
-    from orm_queries import (
-        orm_question_1,
-        orm_question_4,
-        orm_question_5,
-        orm_question_8,
-        orm_question_9,
-        orm_question_10,
-    )
-    from publisher import publish_task
-    from query_data import (
-        clamp_limit,
-        query_applicants_dynamic,
-        run_question_2,
-        run_question_3,
-        run_question_6,
-        run_question_7,
-        run_question_11,
-    )
-except ImportError:
     from src.web.models import Applicant, get_db_session
     from src.web.orm_queries import (
         orm_question_1,
@@ -46,8 +26,28 @@ except ImportError:
         orm_question_9,
         orm_question_10,
     )
-    from src.web.publisher import publish_task
+    from src.web import publisher
     from src.web.query_data import (
+        clamp_limit,
+        query_applicants_dynamic,
+        run_question_2,
+        run_question_3,
+        run_question_6,
+        run_question_7,
+        run_question_11,
+    )
+except ImportError:  # pragma: no cover
+    from models import Applicant, get_db_session
+    from orm_queries import (
+        orm_question_1,
+        orm_question_4,
+        orm_question_5,
+        orm_question_8,
+        orm_question_9,
+        orm_question_10,
+    )
+    import publisher
+    from query_data import (
         clamp_limit,
         query_applicants_dynamic,
         run_question_2,
@@ -141,7 +141,7 @@ def pull_data():
     """
     payload = {"source": "gradcafe_scraper"}
     try:
-        publish_task(kind="scrape_new_data", payload=payload)
+        publisher.publish_task(kind="scrape_new_data", payload=payload)
         return jsonify({
             "ok": True,
             "status": "queued",
@@ -166,7 +166,7 @@ def update_analysis():
     """
     if request.method == "POST":
         try:
-            publish_task(kind="recompute_analytics", payload={})
+            publisher.publish_task(kind="recompute_analytics", payload={})
             return jsonify({
                 "ok": True,
                 "status": "queued",

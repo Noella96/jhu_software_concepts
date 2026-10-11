@@ -24,15 +24,15 @@ import psycopg
 from psycopg import sql
 
 try:
-    from etl.clean import clean_data, generate_applicant_dataset
-    from etl.incremental_scraper import scrape_data
-    from etl.query_data import execute_all_queries
-    from etl.standardize import standardize_dataset
-except ImportError:
     from src.worker.etl.clean import clean_data, generate_applicant_dataset
     from src.worker.etl.incremental_scraper import scrape_data
     from src.worker.etl.query_data import execute_all_queries
     from src.worker.etl.standardize import standardize_dataset
+except ImportError:  # pragma: no cover
+    from etl.clean import clean_data, generate_applicant_dataset
+    from etl.incremental_scraper import scrape_data
+    from etl.query_data import execute_all_queries
+    from etl.standardize import standardize_dataset
 
 logging.basicConfig(
     level=logging.INFO,
@@ -245,9 +245,7 @@ def process_message(
 
     kind = data.get("kind")
     payload = data.get("payload", {})
-    handler = TASK_HANDLERS.get(kind)
-
-    if not handler:
+    if kind not in ("scrape_new_data", "recompute_analytics"):
         logger.error("Unknown task kind '%s'. Rejecting without requeue.", kind)
         ch.basic_nack(delivery_tag=delivery_tag, requeue=False)
         return False
@@ -259,7 +257,10 @@ def process_message(
         # Open DB transaction per message
         with conn.transaction():
             logger.info("Processing task '%s' within DB transaction...", kind)
-            handler(conn, payload)
+            if kind == "scrape_new_data":
+                handle_scrape_new_data(conn, payload)
+            elif kind == "recompute_analytics":
+                handle_recompute_analytics(conn, payload)
 
         # Acknowledge only after commit
         ch.basic_ack(delivery_tag=delivery_tag)
