@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grad Café Admissions Analysis | JHU Software Concepts</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-layout">
+        <!-- Header -->
+        <header class="navbar">
+            <div class="brand-container">
+                <div class="brand-logo">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
+                        <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path>
+                        <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="brand-title">Grad Café Admissions Analysis</h1>
+                    <p class="brand-subtitle">Johns Hopkins University &bull; EN.605.601 Module 4 &bull; Noella Formin</p>
+                </div>
+            </div>
+
+            <!-- Top Right Action Controls -->
+            <div class="nav-actions">
+                <div id="live-indicator" class="live-status-badge {% if status_info.is_running %}running{% else %}idle{% endif %}">
+                    <span class="pulse-dot"></span>
+                    <span id="live-status-text">{% if status_info.is_running %}Scrape in progress...{% else %}Database Ready{% endif %}</span>
+                </div>
+                <button id="btn-update-analysis" data-testid="update-analysis-btn" class="btn btn-secondary">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+                    </svg>
+                    Update Analysis
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-container">
+            <!-- Data Ingestion Control Card -->
+            <section class="card control-banner">
+                <div class="control-content">
+                    <div class="control-header">
+                        <div class="control-icon">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7 10 12 15 17 10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                        </div>
+                        <div>
+                            <h2 class="control-title">Data Ingestion Engine</h2>
+                            <p class="control-description">
+                                <strong>Pull Data</strong> checks Grad Café for newly submitted application results and adds new records to the database. Depending on the amount of new data available, this may take some time.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="control-actions">
+                        <button id="btn-pull-data" data-testid="pull-data-btn" class="btn btn-primary" {% if status_info.is_running %}disabled{% endif %}>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="1 4 1 10 7 10"></polyline>
+                                <polyline points="23 20 23 14 17 14"></polyline>
+                                <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"></path>
+                            </svg>
+                            Pull Data
+                        </button>
+                    </div>
+                </div>
+                <div id="status-alert-box" class="status-alert {% if status_info.error %}error{% elif status_info.is_running %}active{% else %}neutral{% endif %}">
+                    <span id="status-message">{{ status_info.status }}</span>
+                    <span id="total-db-count" class="db-pill">PostgreSQL Total Rows: <strong>{{ "{:,}".format(data.total_records) }}</strong></span>
+                </div>
+            </section>
+
+            <!-- Metrics Overview Grid -->
+            <section class="metrics-grid">
+                <!-- Card 1: Fall 2026 Count (Q1) -->
+                <div class="metric-card">
+                    <div class="metric-header">
+                        <span class="metric-label">Fall 2026 Applicants</span>
+                        <span class="tag tag-blue">Question 1</span>
+                    </div>
+                    <div class="metric-answer-row">
+                        <span class="answer-prefix">Answer:</span>
+                        <span class="metric-value" id="val-q1">{{ "{:,}".format(data.q1) }}</span>
+                    </div>
+                    <p class="metric-footnote">Total submissions targeting the Fall 2026 admission cycle.</p>
+                </div>
+
+                <!-- Card 2: International Ratio (Q2) -->
+                <div class="metric-card">
+                    <div class="metric-header">
+                        <span class="metric-label">Percent International</span>
+                        <span class="tag tag-purple">Question 2</span>
+                    </div>
+                    <div class="metric-answer-row">
+                        <span class="answer-prefix">Answer:</span>
+                        <span class="metric-value" id="val-q2">{{ "%.2f"|format(data.q2) }}%</span>
+                    </div>
+                    <p class="metric-footnote">Calculated over entries reporting nationality classification.</p>
+                </div>
+
+                <!-- Card 3: Fall 2025 Acceptance Rate (Q5) -->
+                <div class="metric-card">
+                    <div class="metric-header">
+                        <span class="metric-label">Fall 2025 Acceptance Rate</span>
+                        <span class="tag tag-green">Question 5</span>
+                    </div>
+                    <div class="metric-answer-row">
+                        <span class="answer-prefix">Answer:</span>
+                        <span class="metric-value" id="val-q5">{{ "%.2f"|format(data.q5) }}%</span>
+                    </div>
+                    <p class="metric-footnote">Percentage of Fall 2025 entries resulting in admission offers.</p>
+                </div>
+
+                <!-- Card 4: American Fall 2026 GPA (Q4) -->
+                <div class="metric-card">
+                    <div class="metric-header">
+                        <span class="metric-label">American Fall 2026 Avg GPA</span>
+                        <span class="tag tag-orange">Question 4</span>
+                    </div>
+                    <div class="metric-answer-row">
+                        <span class="answer-prefix">Answer:</span>
+                        <span class="metric-value" id="val-q4">{{ "%.2f"|format(data.q4) }}</span>
+                    </div>
+                    <p class="metric-footnote">Average undergraduate GPA for domestic Fall 2026 applicants.</p>
+                </div>
+            </section>
+
+            <!-- Detailed Analysis Section -->
+            <section class="analysis-section">
+                <div class="section-title-row">
+                    <h2 class="section-heading">Detailed Query Analysis</h2>
+                    <span class="badge">SQLAlchemy 2.0 ORM & PostgreSQL</span>
+                </div>
+
+                <div class="analysis-grid">
+                    <!-- Q3: Overall Academic Averages -->
+                    <div class="card detail-card">
+                        <div class="card-header">
+                            <h3 class="card-title">Academic Score Distribution</h3>
+                            <span class="tag tag-teal">Question 3</span>
+                        </div>
+                        <div class="scores-table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Metric Name</th>
+                                        <th>Answer (Average Score)</th>
+                                        <th>Evaluation Scale</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><strong>Undergraduate GPA</strong></td>
+                                        <td class="score-highlight"><span class="answer-prefix">Answer:</span> <span id="val-gpa">{{ "%.2f"|format(data.q3.gpa) }}</span></td>
+                                        <td>0.00 – 4.00</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>GRE Quantitative</strong></td>
+                                        <td class="score-highlight"><span class="answer-prefix">Answer:</span> <span id="val-gre">{{ "%.2f"|format(data.q3.gre) }}</span></td>
+                                        <td>130 – 170</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>GRE Verbal</strong></td>
+                                        <td class="score-highlight"><span class="answer-prefix">Answer:</span> <span id="val-gre-v">{{ "%.2f"|format(data.q3.gre_v) }}</span></td>
+                                        <td>130 – 170</td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>GRE Analytical Writing</strong></td>
+                                        <td class="score-highlight"><span class="answer-prefix">Answer:</span> <span id="val-gre-aw">{{ "%.2f"|format(data.q3.gre_aw) }}</span></td>
+                                        <td>0.0 – 6.0</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Q6 & Q7: Accepted GPA and JHU Master's CS -->
+                    <div class="card detail-card">
+                        <div class="card-header">
+                            <h3 class="card-title">Targeted Academic Cohorts</h3>
+                            <span class="tag tag-cyan">Questions 6 & 7</span>
+                        </div>
+                        <div class="cohort-items">
+                            <div class="cohort-box">
+                                <div class="cohort-label">Accepted Fall 2026 Average GPA (Q6)</div>
+                                <div class="cohort-value"><span class="answer-prefix">Answer:</span> <span id="val-q6">{{ "%.2f"|format(data.q6) }}</span></div>
+                                <p class="cohort-desc">Undergraduate GPA benchmark for successful Fall 2026 admits.</p>
+                            </div>
+                            <div class="cohort-box">
+                                <div class="cohort-label">Johns Hopkins MS in CS Applicants (Q7)</div>
+                                <div class="cohort-value"><span class="answer-prefix">Answer:</span> <span id="val-q7">{{ "{:,}".format(data.q7) }}</span></div>
+                                <p class="cohort-desc">Submissions matching Johns Hopkins University / JHU Master's in Computer Science.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Q8 & Q9: Elite CS PhD Comparison -->
+                    <div class="card detail-card full-width">
+                        <div class="card-header">
+                            <h3 class="card-title">Elite CS PhD Admissions: Original vs. LLM-Standardized Fields</h3>
+                            <span class="tag tag-purple">Questions 8 & 9</span>
+                        </div>
+                        <div class="comparison-container">
+                            <div class="comparison-card">
+                                <span class="comp-label">Original Downloaded Fields (Q8)</span>
+                                <span class="comp-value"><span class="answer-prefix">Answer:</span> <span id="val-q8">{{ data.q9.original }}</span></span>
+                                <span class="comp-sub">Georgetown, MIT, Stanford, CMU</span>
+                            </div>
+                            <div class="comparison-card">
+                                <span class="comp-label">LLM Canonical Normalized Fields (Q9)</span>
+                                <span class="comp-value"><span class="answer-prefix">Answer:</span> <span id="val-q9">{{ data.q9.llm }}</span></span>
+                                <span class="comp-sub">Standardized University & Program</span>
+                            </div>
+                            <div class="comparison-card highlight">
+                                <span class="comp-label">Variance / Delta</span>
+                                <span class="comp-value" id="val-diff">
+                                    {% if data.q9.diff > 0 %}+{{ data.q9.diff }}{% else %}{{ data.q9.diff }}{% endif %}
+                                </span>
+                                <span class="comp-sub">Discrepancy resolved by canonical mapping</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Q10: Top CS Universities (Original Question 1) -->
+                    <div class="card detail-card">
+                        <div class="card-header">
+                            <h3 class="card-title">Top 5 CS Universities by Submissions</h3>
+                            <span class="tag tag-gold">Original Question 10</span>
+                        </div>
+                        <table class="data-table" id="table-q10">
+                            <thead>
+                                <tr>
+                                    <th>University</th>
+                                    <th>Applicants</th>
+                                    <th>Accepted</th>
+                                    <th>Accept Rate</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for r in data.q10 %}
+                                <tr>
+                                    <td><strong>{{ r.university }}</strong></td>
+                                    <td>{{ r.total_applicants }}</td>
+                                    <td>{{ r.accepted_count }}</td>
+                                    <td><span class="rate-badge">{{ "%.2f"|format(r.acceptance_rate_pct) }}%</span></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Q11: Accepted vs Rejected Comparison (Original Question 2) -->
+                    <div class="card detail-card">
+                        <div class="card-header">
+                            <h3 class="card-title">Fall 2026 Outcome Metrics (Accepted vs. Rejected)</h3>
+                            <span class="tag tag-gold">Original Question 11</span>
+                        </div>
+                        <table class="data-table" id="table-q11">
+                            <thead>
+                                <tr>
+                                    <th>Admission Outcome</th>
+                                    <th>Applicant Count</th>
+                                    <th>Avg GPA</th>
+                                    <th>Avg GRE Quant</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for r in data.q11 %}
+                                <tr>
+                                    <td>
+                                        <span class="status-pill {% if r.admission_outcome == 'Accepted' %}pill-accept{% elif r.admission_outcome == 'Rejected' %}pill-reject{% else %}pill-other{% endif %}">
+                                            {{ r.admission_outcome }}
+                                        </span>
+                                    </td>
+                                    <td>{{ "{:,}".format(r.applicant_count) }}</td>
+                                    <td><strong>{{ "%.2f"|format(r.avg_gpa) }}</strong></td>
+                                    <td><strong>{{ "%.2f"|format(r.avg_gre_quant) }}</strong></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <p>&copy; 2026 Noella Formin &bull; Johns Hopkins University Software Concepts (EN.605.601) &bull; Module 4</p>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>
