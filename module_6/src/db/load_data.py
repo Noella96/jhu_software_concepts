@@ -1,0 +1,342 @@
+"""
+Database Loader and Schema Initialization Module for Grad Café Admissions Data.
+Module 6 - Deploy Anywhere Assignment (Decoupled Microservice Architecture)
+Johns Hopkins University - Software Concepts (EN.605.601)
+
+Features:
+- SQL injection defense via psycopg sql.SQL composition for all DDL and DML operations.
+- Least-privilege and containerized configuration support via DATABASE_URL or POSTGRES_* env vars.
+- Watermark tracking schema ('ingestion_watermarks') ensuring idempotent incremental updates.
+- Robust data parsing, normalization, and bulk UPSERT capabilities.
+"""
+from __future__ import annotations
+
+import datetime
+from datetime import datetime as dt
+import json
+import os
+import re
+from typing import Any, Dict, List, Optional, Tuple
+
+import psycopg
+from psycopg import sql
+
+
+def get_db_connection_params(custom_conninfo: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Retrieve database connection parameters from environment variables or custom connection string.
+    Supports containerized environments via DATABASE_URL or fallback environment variables.
+    """
+    database_url = custom_conninfo or os.environ.get("DATABASE_URL")
+    if database_url:
+        return {"conninfo": database_url}
+
+    dbname = os.environ.get("DB_NAME", os.environ.get("POSTGRES_DB", "gradcafe_db"))
+    user = os.environ.get(
+        "DB_USER",
+        os.environ.get("POSTGRES_USER", os.environ.get("USER", "postgres")),
+    )
+    password = os.environ.get("DB_PASSWORD", os.environ.get("POSTGRES_PASSWORD", ""))
+    host = os.environ.get("DB_HOST", os.environ.get("POSTGRES_HOST", "localhost"))
+    port = int(os.environ.get("DB_PORT", os.environ.get("POSTGRES_PORT", "5432")))
+
+    conn_kwargs: Dict[str, Any] = {
+        "dbname": dbname,
+        "host": host,
+        "port": port,
+    }
+    if user:
+        conn_kwargs["user"] = user
+    if password:
+        conn_kwargs["password"] = password
+
+    return conn_kwargs
+
+
+def get_db_connection(custom_conninfo: Optional[str] = None) -> psycopg.Connection:
+    """
+    Establish a connection to the PostgreSQL database using psycopg 3.
+    """
+    params = get_db_connection_params(custom_conninfo)
+    if "conninfo" in params:
+        return psycopg.connect(params["conninfo"])
+    return psycopg.connect(**params)
+
+
+def create_applicants_table(conn: psycopg.Connection, table_name: str = "applicants") -> None:
+    """
+    Create the 'applicants' table if it does not already exist using safe SQL composition.
+    """
+    stmt = sql.SQL(
+        """
+        CREATE TABLE IF NOT EXISTS {table} (
+            p_id INTEGER PRIMARY KEY,
+            program TEXT,
+            comments TEXT,
+            date_added DATE,
+            url TEXT,
+            status TEXT,
+            term TEXT,
+            us_or_international TEXT,
+            gpa FLOAT,
+            gre FLOAT,
+            gre_v FLOAT,
+            gre_aw FLOAT,
+            degree TEXT,
+            llm_generated_program TEXT,
+            llm_generated_university TEXT
+        );
+        """
+    ).format(table=sql.Identifier(table_name))
+
+    with conn.cursor() as cur:
+        cur.execute(stmt)
+    conn.commit()
+
+
+def create_watermarks_table(
+    conn: psycopg.Connection, table_name: str = "ingestion_watermarks"
+) -> None:
+    """
+    Create the 'ingestion_watermarks' table if it does not already exist.
+    Stores high-water marks for incremental scrapers ensuring idempotence across restarts.
+    """
+    stmt = sql.SQL(
+        """
+        CREATE TABLE IF NOT EXISTS {table} (
+            source TEXT PRIMARY KEY,
+            last_seen TEXT,
+            updated_at TIMESTAMPTZ DEFAULT now()
+        );
+        """
+    ).format(table=sql.Identifier(table_name))
+
+    with conn.cursor() as cur:
+        cur.execute(stmt)
+    conn.commit()
+
+
+def create_all_tables(conn: psycopg.Connection) -> None:
+    """Initialize all required tables in PostgreSQL."""
+    create_applicants_table(conn)
+    create_watermarks_table(conn)
+
+
+def get_watermark(conn: psycopg.Connection, source: str = "gradcafe_scraper") -> Optional[str]:
+    """
+    Retrieve the last seen watermark for a given ingestion source.
+    """
+    stmt = sql.SQL(
+        "SELECT last_seen FROM {table} WHERE source = %s;"
+    ).format(table=sql.Identifier("ingestion_watermarks"))
+
+    with conn.cursor() as cur:
+        cur.execute(stmt, (source,))
+        row = cur.fetchone()
+        if row and row[0] is not None:
+            return str(row[0])
+    return None
+
+
+def update_watermark(conn: psycopg.Connection, source: str, last_seen: str) -> None:
+    """
+    Update or insert the watermark for a given source using parameterized SQL.
+    """
+    stmt = sql.SQL(
+        """
+        INSERT INTO {table} (source, last_seen, updated_at)
+        VALUES (%s, %s, now())
+        ON CONFLICT (source) DO UPDATE SET
+            last_seen = EXCLUDED.last_seen,
+            updated_at = now();
+        """
+    ).format(table=sql.Identifier("ingestion_watermarks"))
+
+    with conn.cursor() as cur:
+        cur.execute(stmt, (source, last_seen))
+    conn.commit()
+
+
+def parse_p_id(url: str, default_id: int) -> int:
+    """Extract numeric unique identifier (p_id) from entry URL."""
+    if url:
+        match = re.search(r"/result/(\d+)", str(url))
+        if match:
+            return int(match.group(1))
+        digit_match = re.search(r"(\d+)", str(url))
+        if digit_match:
+            return int(digit_match.group(1))
+    return default_id
+
+
+def parse_date(date_str: Optional[str]) -> Optional[datetime.date]:
+    """
+    Parse date string into a Python date object.
+    Supports formats like 'Added on March 31, 2026', 'March 31, 2026', '2026-03-31'.
+    """
+    if not date_str:
+        return None
+    cleaned = re.sub(r"^Added on\s*", "", str(date_str), flags=re.IGNORECASE).strip()
+    for fmt in ("%B %d, %Y", "%b %d, %Y", "%Y-%m-%d", "%m/%d/%Y"):
+        try:
+            return dt.strptime(cleaned, fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
+def parse_numeric(val: Any) -> Optional[float]:
+    """Extract float score from strings like 'GPA 3.88', 'GRE 165', '165.0', or None."""
+    if val is None:
+        return None
+    if isinstance(val, (int, float)):
+        return float(val)
+    val_str = str(val).strip()
+    if not val_str:
+        return None
+    match = re.search(r"([0-9]+(?:\.[0-9]+)?)", val_str)
+    if match:
+        return float(match.group(1))
+    return None
+
+
+def parse_text(val: Any) -> Optional[str]:
+    """Normalize text string, returning None for blank or missing values."""
+    if val is None:
+        return None
+    cleaned = str(val).strip()
+    return cleaned if cleaned else None
+
+
+def load_data_from_records(
+    records: List[Dict[str, Any]],
+    conn: psycopg.Connection,
+    table_name: str = "applicants",
+) -> int:
+    """
+    Load a list of applicant records into PostgreSQL applicants table using safe SQL composition.
+    Uses ON CONFLICT (p_id) DO NOTHING for idempotent batch ingestion.
+    """
+    stmt = sql.SQL(
+        """
+        INSERT INTO {table} (
+            p_id, program, comments, date_added, url, status, term,
+            us_or_international, gpa, gre, gre_v, gre_aw, degree,
+            llm_generated_program, llm_generated_university
+        ) VALUES (
+            %(p_id)s, %(program)s, %(comments)s, %(date_added)s, %(url)s, %(status)s, %(term)s,
+            %(us_or_international)s, %(gpa)s, %(gre)s, %(gre_v)s, %(gre_aw)s, %(degree)s,
+            %(llm_generated_program)s, %(llm_generated_university)s
+        )
+        ON CONFLICT (p_id) DO UPDATE SET
+            program = EXCLUDED.program,
+            comments = EXCLUDED.comments,
+            date_added = EXCLUDED.date_added,
+            url = EXCLUDED.url,
+            status = EXCLUDED.status,
+            term = EXCLUDED.term,
+            us_or_international = EXCLUDED.us_or_international,
+            gpa = EXCLUDED.gpa,
+            gre = EXCLUDED.gre,
+            gre_v = EXCLUDED.gre_v,
+            gre_aw = EXCLUDED.gre_aw,
+            degree = EXCLUDED.degree,
+            llm_generated_program = EXCLUDED.llm_generated_program,
+            llm_generated_university = EXCLUDED.llm_generated_university;
+        """
+    ).format(table=sql.Identifier(table_name))
+
+    prepared_data: List[Dict[str, Any]] = []
+    for idx, r in enumerate(records):
+        url = r.get("url", "")
+        p_id = r.get("p_id")
+        if p_id is None:
+            p_id = parse_p_id(url, idx + 1)
+        else:
+            p_id = int(p_id)
+
+        row = {
+            "p_id": p_id,
+            "program": parse_text(r.get("program")),
+            "comments": parse_text(r.get("comments")),
+            "date_added": parse_date(r.get("date_added")),
+            "url": parse_text(url),
+            "status": parse_text(r.get("status")),
+            "term": parse_text(r.get("term")),
+            "us_or_international": parse_text(
+                r.get("us_or_international") or r.get("US/International")
+            ),
+            "gpa": parse_numeric(r.get("gpa") or r.get("GPA")),
+            "gre": parse_numeric(r.get("gre") or r.get("GRE")),
+            "gre_v": parse_numeric(r.get("gre_v") or r.get("GRE V")),
+            "gre_aw": parse_numeric(r.get("gre_aw") or r.get("GRE AW")),
+            "degree": parse_text(r.get("degree") or r.get("Degree")),
+            "llm_generated_program": parse_text(
+                r.get("llm_generated_program") or r.get("llm-generated-program")
+            ),
+            "llm_generated_university": parse_text(
+                r.get("llm_generated_university") or r.get("llm-generated-university")
+            ),
+        }
+        prepared_data.append(row)
+
+    with conn.cursor() as cur:
+        cur.executemany(stmt, prepared_data)
+    conn.commit()
+
+    return len(prepared_data)
+
+
+def load_data_from_json(json_path: str, conn: psycopg.Connection) -> Tuple[int, int]:
+    """
+    Load applicant records from a JSON file into PostgreSQL applicants table.
+    Returns a tuple of (inserted_count, total_records).
+    """
+    if not os.path.exists(json_path):
+        raise FileNotFoundError(f"Data file not found at: {json_path}")
+
+    with open(json_path, "r", encoding="utf-8") as f:
+        records: List[Dict[str, Any]] = json.load(f)
+
+    inserted = load_data_from_records(records, conn)
+    return inserted, len(records)
+
+
+def main() -> None:
+    """
+    Main database initialization and loading entrypoint.
+    """
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    data_file = os.path.join(base_dir, "..", "data", "applicant_data.json")
+
+    print("[+] Connecting to PostgreSQL database...")
+    try:
+        conn = get_db_connection()
+    except Exception as err:  # pylint: disable=broad-exception-caught
+        print(f"[-] Database connection failed: {err}")
+        return
+
+    print("[+] Ensuring 'applicants' and 'ingestion_watermarks' tables exist...")
+    create_all_tables(conn)
+
+    if os.path.exists(data_file):
+        print(f"[+] Loading records from {os.path.basename(data_file)}...")
+        loaded, total = load_data_from_json(data_file, conn)
+        print(f"[+] Loaded {loaded}/{total} records.")
+    else:
+        print(f"[-] Warning: Data file {data_file} not found.")
+
+    count_stmt = sql.SQL(
+        "SELECT COUNT(*) FROM {table};"
+    ).format(table=sql.Identifier("applicants"))
+    with conn.cursor() as cur:
+        cur.execute(count_stmt)
+        row = cur.fetchone()
+        count = row[0] if row else 0
+
+    conn.close()
+    print(f"[+] Total rows in database: {count:,}")
+
+
+if __name__ == "__main__":
+    main()
