@@ -14,9 +14,9 @@ from sqlalchemy import and_, case, cast, desc, func, or_, select, Float, Numeric
 from sqlalchemy.orm import Session
 
 try:
-    from models import Applicant, get_db_session
-except ImportError:
     from src.web.models import Applicant, get_db_session
+except ImportError:  # pragma: no cover
+    from models import Applicant, get_db_session
 
 
 def orm_question_1(session: Session) -> int:
