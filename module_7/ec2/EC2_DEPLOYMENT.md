@@ -66,7 +66,7 @@ Strict least-privilege networking was enforced to protect sensitive database and
 chmod 400 ~/.ssh/jhu-software-concepts-key.pem
 
 # Connect to the remote Ubuntu host
-ssh -i ~/.ssh/jhu-software-concepts-key.pem ubuntu@54.210.88.142
+ssh -i ~/.ssh/jhu-software-concepts-key.pem ubuntu@44.197.56.0
 ```
 
 ---
@@ -156,7 +156,7 @@ docker compose -f docker-compose.ec2.yml logs worker
 ### Test Live Web Application
 Open a web browser and navigate to:
 ```text
-http://54.210.88.142:8080
+http://44.197.56.0:8080
 ```
 1. Verify that the analytics dashboard loads with all 11 SQL and ORM queries populated.
 2. Click **Scrape New Data** &rarr; Verify immediate HTTP 202 Accepted response.
@@ -165,7 +165,7 @@ http://54.210.88.142:8080
 ### Secure Access to RabbitMQ Management UI via SSH Tunnel
 Because port 15672 is not exposed publicly, establish an encrypted SSH local port forward:
 ```bash
-ssh -i ~/.ssh/jhu-software-concepts-key.pem -L 15672:localhost:15672 ubuntu@54.210.88.142
+ssh -i ~/.ssh/jhu-software-concepts-key.pem -L 15672:localhost:15672 ubuntu@44.197.56.0
 ```
 Access the management console locally at `http://localhost:15672` (Credentials: `guest` / `guest`).
 
@@ -183,7 +183,7 @@ docker compose -f docker-compose.ec2.yml down
 exit
 
 # 3. Stop the EC2 instance via AWS Management Console or AWS CLI
-aws ec2 stop-instances --instance-ids i-0a8b9c7d6e5f41234
+aws ec2 stop-instances --instance-ids i-0bc0ca1d343ff826d
 ```
 > **Notice:** Do not terminate the instance; keep it stopped so it can be resumed for Module 8.
 

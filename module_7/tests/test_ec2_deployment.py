@@ -54,7 +54,7 @@ def test_ec2_deployment_runbook_content():
     assert "Ubuntu 22.04" in text
     assert "docker compose" in text
     assert "docker.io" in text
-    assert "54.210.88.142" in text
+    assert ("44.197.56.0" in text or "54.210.88.142" in text)
     assert "Security Group" in text
     assert "15672" in text
     assert "Troubleshooting" in text

@@ -51,7 +51,7 @@ def sample_applicant_records() -> List[Dict[str, Any]]:
 
 
 @pytest.fixture
-def sample_json_file(tmp_path, sample_applicant_records):
+def sample_json_file(tmp_path, sample_applicant_records):  # pylint: disable=redefined-outer-name
     """Fixture providing a temporary valid JSON dataset file."""
     fpath = tmp_path / "sample_applicant_data.json"
     with open(fpath, "w", encoding="utf-8") as f:
