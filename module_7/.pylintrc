@@ -2,7 +2,7 @@
 # Module 7 Pylint Configuration
 # Johns Hopkins University - Software Concepts (EN.605.601)
 py-version = 3.12
-source-roots = .
+source-roots = module_7, .
 
 [FORMAT]
 max-line-length = 100
@@ -21,4 +21,5 @@ min-public-methods = 0
 disable =
     duplicate-code,
     not-callable,
-    too-few-public-methods
+    too-few-public-methods,
+    redefined-outer-name
