@@ -13,14 +13,14 @@ Module 7 transitions the distributed admissions analysis platform developed acro
 1. **Part 1: AWS Analytical Data Pipeline (S3 & SageMaker)**
    - **Root MFA Hardening**: Multi-Factor Authentication (TOTP virtual device) activated on the root account to prevent unauthorized administrative escalation (`mfa.png`).
    - **Dedicated Least-Privilege IAM User**: IAM user `dailyWork-NF` provisioned with scoped permissions (`AmazonS3FullAccess`, `AmazonSageMakerFullAccess`, `AmazonEC2FullAccess`, `IAMReadOnlyAccess`) ensuring zero use of root credentials for pipeline execution (`dailyWork.png`).
-   - **Cloud Storage Data Lake**: Private Amazon S3 bucket `grad-cafe-nf-794098635722` with public access block and default SSE-S3 encryption, populated with 11.0 MB of admissions records (`grad-cafe-bucket.png`).
-   - **Managed SageMaker Compute**: SageMaker Jupyter Notebook instance `s3-to-sagemaker-grad-cafe-pipeline` on `ml.t2.medium` (`liveNotebook.png`), executing modular ingestion via `s3_fetch.py` and `grad-cafe-pipeline.ipynb` to output `applicant_data_SM.json`.
+   - **Cloud Storage Data Lake**: Private Amazon S3 bucket `grad-cafe-nf-594366804861` with public access block and default SSE-S3 encryption, populated with 11.0 MB of admissions records (`grad-cafe-bucket.png`).
+   - **Managed SageMaker Compute**: SageMaker Jupyter Notebook instance `s3-to-sagemaker-grad-cafe-pipeline` on `ml.t3.medium` (`liveNotebook.png`), executing modular ingestion via `s3_fetch.py` and `grad-cafe-pipeline.ipynb` to output `applicant_data_SM.json`.
 
 2. **Part 2: AWS EC2 Microservices Production Deployment**
-   - **Cloud Compute Host**: AWS EC2 instance `i-0e65dc3a0281fbdd5` (`grad-cafe-docker-host`, t2.micro / t3.micro) running in `us-east-1` with Public IPv4 `23.22.75.252` (`ec2-instance.png`).
-   - **Hardened Security Group**: Security group `grad-cafe-sg (sg-0fc3575d805ffcd24)` restricting ingress to SSH (port 22) and Web UI (port 8080). PostgreSQL (5432) and RabbitMQ Management (15672) are strictly isolated on `127.0.0.1` and internal Docker bridge networks (`ec2-security-group.png`).
+   - **Cloud Compute Host**: AWS EC2 instance `i-0cb3ae1c1a04e050f` (`grad-cafe-docker-host`, t2.micro) running in `us-east-1` with Public IPv4 `100.31.80.252` (`ec2-instance.png`).
+   - **Hardened Security Group**: Security group `grad-cafe-sg (sg-07f113a7ba0337ccc)` restricting ingress to SSH (port 22) and Web UI (port 8080). PostgreSQL (5432) and RabbitMQ Management (15672) are strictly isolated on `127.0.0.1` and internal Docker bridge networks (`ec2-security-group.png`).
    - **Multi-Service Docker Compose**: 4-tier microservice architecture (`gradcafe_web_ec2`, `gradcafe_worker_ec2`, `gradcafe_rabbitmq_ec2`, `gradcafe_db_ec2`) launched via `docker-compose.ec2.yml` (`ec2-compose-ps.png`).
-   - **Live Production Dashboard**: Public analytical web dashboard loaded and operating at `http://23.22.75.252:8080/analysis` (`ec2-app.png`).
+   - **Live Production Dashboard**: Public analytical web dashboard loaded and operating at `http://100.31.80.252:8080/analysis` (`ec2-app.png`).
 
 ---
 
@@ -30,14 +30,14 @@ All 8 required verification screenshots are placed in `module_7/` and embedded i
 
 | Screenshot File | Description | Verification Details |
 | :--- | :--- | :--- |
-| `mfa.png` | Root Account MFA Status | Shows virtual TOTP authenticator device active on account `794098635722` |
+| `mfa.png` | Root Account MFA Status | Shows virtual TOTP authenticator device active on account `594366804861` |
 | `dailyWork.png` | IAM User Permissions | Displays user `dailyWork-NF` with attached managed policies |
-| `grad-cafe-bucket.png` | S3 Bucket Objects | S3 bucket `grad-cafe-nf-794098635722` holding `applicant_data.json` (11.0 MB) |
-| `liveNotebook.png` | SageMaker Notebook Instance | Instance `s3-to-sagemaker-grad-cafe-pipeline` in `InService` state on `ml.t2.medium` |
-| `ec2-instance.png` | EC2 Instance State | Instance `i-0e65dc3a0281fbdd5` in `running` state with Public IPv4 `23.22.75.252` |
+| `grad-cafe-bucket.png` | S3 Bucket Objects | S3 bucket `grad-cafe-nf-594366804861` holding `applicant_data.json` (11.0 MB) |
+| `liveNotebook.png` | SageMaker Notebook Instance | Instance `s3-to-sagemaker-grad-cafe-pipeline` in `InService` state on `ml.t3.medium` |
+| `ec2-instance.png` | EC2 Instance State | Instance `i-0cb3ae1c1a04e050f` in `running` state with Public IPv4 `100.31.80.252` |
 | `ec2-security-group.png` | EC2 Security Group Ingress | Inbound rules for ports 22 and 8080; DB & RabbitMQ ports closed publicly |
 | `ec2-compose-ps.png` | Terminal `docker compose ps` | Terminal output showing all 4 microservice containers `Up (healthy)` |
-| `ec2-app.png` | Web Dashboard in Browser | Chrome browser visiting `http://23.22.75.252:8080/analysis` with analytical metrics |
+| `ec2-app.png` | Web Dashboard in Browser | Chrome browser visiting `http://100.31.80.252:8080/analysis` with analytical metrics |
 
 ---
 
@@ -48,7 +48,7 @@ All 8 required verification screenshots are placed in `module_7/` and embedded i
 ```text
 +----------------------------+
 |        Amazon S3           |
-|  grad-cafe-nf-794098635722 |
+|  grad-cafe-nf-594366804861 |
 |   (applicant_data.json)    |
 +----------------------------+
               |
@@ -57,7 +57,7 @@ All 8 required verification screenshots are placed in `module_7/` and embedded i
 +---------------------------------------------+
 |        Amazon SageMaker Compute             |
 |   s3-to-sagemaker-grad-cafe-pipeline        |
-|               (ml.t2.medium)                |
+|               (ml.t3.medium)                |
 |                                             |
 |  +----------------+    +-----------------+  |
 |  |  s3_fetch.py   | -> |  Jupyter NB     |  |
@@ -79,7 +79,7 @@ Features:
 
 ```bash
 # Fetch from S3 to SageMaker local storage:
-python s3_fetch.py --bucket grad-cafe-nf-794098635722 --key applicant_data.json --output applicant_data_SM.json
+python s3_fetch.py --bucket grad-cafe-nf-594366804861 --key applicant_data.json --output applicant_data_SM.json
 ```
 
 ---
@@ -94,8 +94,8 @@ python s3_fetch.py --bucket grad-cafe-nf-794098635722 --key applicant_data.json 
              | Inbound TCP :8080 (Restricted to Authorized IP)
              v
 +--------------------------------------------------------------+
-| AWS EC2 Instance: i-0e65dc3a0281fbdd5 (23.22.75.252)          |
-| Security Group: sg-0fc3575d805ffcd24 (grad-cafe-sg)         |
+| AWS EC2 Instance: i-0cb3ae1c1a04e050f (100.31.80.252)        |
+| Security Group: sg-07f113a7ba0337ccc (grad-cafe-sg)         |
 |                                                              |
 |   +-------------------+              +-------------------+   |
 |   |  Flask Web App    | -- AMQP ---> |  RabbitMQ Broker  |   |
