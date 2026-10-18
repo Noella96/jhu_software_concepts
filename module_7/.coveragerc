@@ -1,0 +1,12 @@
+[run]
+branch = True
+source =
+    s3_fetch
+
+[report]
+show_missing = True
+exclude_also =
+    pragma: no cover
+    except ImportError:
+    if __name__ == .__main__.:
+    def __repr__
