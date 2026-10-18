@@ -40,3 +40,6 @@ build/
 _build/
 docs/_build/
 
+# Scratch / temporary scripts
+scratch/
+
